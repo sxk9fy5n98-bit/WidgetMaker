@@ -1,0 +1,24 @@
+{
+  "source": "/Users/jim/Desktop/WidgetMaker/WidgetMakerExtension/WidgetMakerExtension.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Time:",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 44
+        }
+      },
+      {
+        "comment": "",
+        "key": "Favorite Emoji:",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 47
+        }
+      }
+    ]
+  },
+  "version": 1
+}

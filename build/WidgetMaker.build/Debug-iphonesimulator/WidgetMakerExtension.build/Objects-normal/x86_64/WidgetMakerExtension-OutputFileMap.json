@@ -1,0 +1,49 @@
+{
+  "" : {
+    "diagnostics" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension-primary.dia",
+    "emit-module-dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension-primary-emit-module.dia",
+    "pch" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension-primary.swiftdeps"
+  },
+  "/Users/jim/Desktop/WidgetMaker/WidgetMakerExtension/ConfigurationAppIntent.swift" : {
+    "const-values" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/ConfigurationAppIntent.swiftconstvalues",
+    "dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/ConfigurationAppIntent.d",
+    "diagnostics" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/ConfigurationAppIntent.dia",
+    "index-unit-output-path" : "/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/ConfigurationAppIntent.o",
+    "llvm-bc" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/ConfigurationAppIntent.bc",
+    "object" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/ConfigurationAppIntent.o",
+    "swift-dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/ConfigurationAppIntent.swiftdeps",
+    "swiftmodule" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/ConfigurationAppIntent~partial.swiftmodule"
+  },
+  "/Users/jim/Desktop/WidgetMaker/WidgetMakerExtension/WidgetMakerExtension.swift" : {
+    "const-values" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension.swiftconstvalues",
+    "dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension.d",
+    "diagnostics" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension.dia",
+    "index-unit-output-path" : "/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension.o",
+    "llvm-bc" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension.bc",
+    "object" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension.o",
+    "swift-dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension.swiftdeps",
+    "swiftmodule" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtension~partial.swiftmodule"
+  },
+  "/Users/jim/Desktop/WidgetMaker/WidgetMakerExtension/WidgetMakerExtensionBundle.swift" : {
+    "const-values" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtensionBundle.swiftconstvalues",
+    "dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtensionBundle.d",
+    "diagnostics" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtensionBundle.dia",
+    "index-unit-output-path" : "/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtensionBundle.o",
+    "llvm-bc" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtensionBundle.bc",
+    "object" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtensionBundle.o",
+    "swift-dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtensionBundle.swiftdeps",
+    "swiftmodule" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/WidgetMakerExtensionBundle~partial.swiftmodule"
+  },
+  "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/jim/Desktop/WidgetMaker/build/WidgetMaker.build/Debug-iphonesimulator/WidgetMakerExtension.build/Objects-normal/x86_64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}
