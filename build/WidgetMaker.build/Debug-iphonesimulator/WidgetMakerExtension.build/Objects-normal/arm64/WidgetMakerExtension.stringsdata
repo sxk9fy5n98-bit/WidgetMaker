@@ -4,18 +4,18 @@
     "Localizable": [
       {
         "comment": "",
-        "key": "Time:",
+        "key": "Buggy Widget",
         "location": {
-          "startingColumn": 18,
-          "startingLine": 44
+          "startingColumn": 35,
+          "startingLine": 132
         }
       },
       {
         "comment": "",
-        "key": "Favorite Emoji:",
+        "key": "Shows your customized title, colors, font, and image.",
         "location": {
-          "startingColumn": 18,
-          "startingLine": 47
+          "startingColumn": 22,
+          "startingLine": 133
         }
       }
     ]

@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+Target 'WidgetMaker' in project 'WidgetMaker'
+➜ Explicit dependency on target 'WidgetMakerExtension' in project 'WidgetMaker'
+Target 'WidgetMakerExtension' in project 'WidgetMaker' (no dependencies)

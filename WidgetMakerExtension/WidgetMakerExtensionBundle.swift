@@ -12,5 +12,6 @@ import SwiftUI
 struct WidgetMakerExtensionBundle: WidgetBundle {
     var body: some Widget {
         WidgetMakerExtension()
+        WidgetUtilityLiveActivity()
     }
 }
