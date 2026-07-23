@@ -7,10 +7,16 @@ struct SharedWidgetConfiguration: Codable, Equatable {
     var backgroundColorHex: String
     var textColorHex: String
     var fontName: String
-    /// 0...1 progress shown on Live Activity / Dynamic Island.
+    /// 0...1 progress shown when `showsProgress` is true.
     var progress: Double
     /// Filename only — image bytes live in the App Group container via FileManager.
     var backgroundImageFileName: String?
+
+    var showsEmoji: Bool
+    var showsTitle: Bool
+    var showsSubtitle: Bool
+    var showsProgress: Bool
+    var showsTimestamp: Bool
 
     /// Localized defaults for first launch (evaluated at access time).
     static var `default`: SharedWidgetConfiguration {
@@ -22,7 +28,12 @@ struct SharedWidgetConfiguration: Codable, Equatable {
             textColorHex: "#000000",
             fontName: WidgetFontOption.system.rawValue,
             progress: 0.65,
-            backgroundImageFileName: nil
+            backgroundImageFileName: nil,
+            showsEmoji: true,
+            showsTitle: true,
+            showsSubtitle: true,
+            showsProgress: true,
+            showsTimestamp: true
         )
     }
 
@@ -57,6 +68,7 @@ struct SharedWidgetConfiguration: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case title, subtitle, emoji, backgroundColorHex, textColorHex, fontName, progress, backgroundImageFileName
+        case showsEmoji, showsTitle, showsSubtitle, showsProgress, showsTimestamp
     }
 
     init(
@@ -67,7 +79,12 @@ struct SharedWidgetConfiguration: Codable, Equatable {
         textColorHex: String,
         fontName: String,
         progress: Double,
-        backgroundImageFileName: String?
+        backgroundImageFileName: String?,
+        showsEmoji: Bool = true,
+        showsTitle: Bool = true,
+        showsSubtitle: Bool = true,
+        showsProgress: Bool = true,
+        showsTimestamp: Bool = true
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -77,6 +94,11 @@ struct SharedWidgetConfiguration: Codable, Equatable {
         self.fontName = fontName
         self.progress = progress
         self.backgroundImageFileName = backgroundImageFileName
+        self.showsEmoji = showsEmoji
+        self.showsTitle = showsTitle
+        self.showsSubtitle = showsSubtitle
+        self.showsProgress = showsProgress
+        self.showsTimestamp = showsTimestamp
     }
 
     init(from decoder: Decoder) throws {
@@ -89,5 +111,10 @@ struct SharedWidgetConfiguration: Codable, Equatable {
         fontName = try container.decode(String.self, forKey: .fontName)
         progress = try container.decodeIfPresent(Double.self, forKey: .progress) ?? Self.default.progress
         backgroundImageFileName = try container.decodeIfPresent(String.self, forKey: .backgroundImageFileName)
+        showsEmoji = try container.decodeIfPresent(Bool.self, forKey: .showsEmoji) ?? true
+        showsTitle = try container.decodeIfPresent(Bool.self, forKey: .showsTitle) ?? true
+        showsSubtitle = try container.decodeIfPresent(Bool.self, forKey: .showsSubtitle) ?? true
+        showsProgress = try container.decodeIfPresent(Bool.self, forKey: .showsProgress) ?? true
+        showsTimestamp = try container.decodeIfPresent(Bool.self, forKey: .showsTimestamp) ?? true
     }
 }

@@ -8,15 +8,15 @@ import SwiftUI
 import WidgetKit
 
 struct WidgetConfigurationView: View {
-    @State private var configuration = SharedDataStore.load() ?? .default
+    @State private var portfolio = SharedDataStore.loadPortfolio()
+    @State private var designName = ""
+    @State private var configuration = SharedWidgetConfiguration.default
     @State private var backgroundColor = Color(hex: SharedWidgetConfiguration.default.backgroundColorHex) ?? .green
     @State private var textColor = Color(hex: SharedWidgetConfiguration.default.textColorHex) ?? .black
     @State private var selectedFont: WidgetFontOption = .system
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var previewImage: UIImage?
-    /// Image bytes chosen in the editor but not yet written on Save.
     @State private var pendingImageData: Data?
-    /// When true, Save will clear the persisted background image.
     @State private var pendingRemoveImage = false
     @State private var isLiveActivityActive = LiveActivityController.isActivityInProgress
     @State private var isSaving = false
@@ -24,8 +24,12 @@ struct WidgetConfigurationView: View {
     @State private var showHelp = false
     @State private var showSavedBanner = false
     @State private var alertMessage: AlertMessage?
+    @State private var pendingNavigation: PendingNavigation?
+    @State private var showDeleteConfirmation = false
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @AppStorage("hasSeenAssignDesignTip") private var hasSeenAssignDesignTip = false
     @State private var showOnboarding = false
+    @State private var showAssignDesignTip = false
 
     private var draftConfiguration: SharedWidgetConfiguration {
         var draft = configuration
@@ -45,13 +49,23 @@ struct WidgetConfigurationView: View {
         return configuration.backgroundImageFileName != nil
     }
 
+    /// True when the editor differs from the last saved selected design.
+    private var hasUnsavedChanges: Bool {
+        if pendingImageData != nil || pendingRemoveImage { return true }
+        if designName != portfolio.selectedDesign.name { return true }
+        return draftConfiguration != portfolio.selectedDesign.configuration
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+                portfolioSection
                 previewSection
+                contentVisibilitySection
                 textSection
                 styleSection
                 imageSection
+                progressSection
                 liveActivitySection
                 homeScreenSection
             }
@@ -78,13 +92,15 @@ struct WidgetConfigurationView: View {
                                 .fontWeight(.semibold)
                         }
                     }
-                    .disabled(isSaving || isImportingPhoto)
+                    .disabled(isSaving || isImportingPhoto || !hasUnsavedChanges)
                     .accessibilityHint(Text("Saves your design and refreshes Home Screen widgets"))
                 }
             }
             .safeAreaInset(edge: .bottom) {
                 if showSavedBanner {
                     savedBanner
+                } else if showAssignDesignTip {
+                    assignDesignTipBanner
                 }
             }
             .sheet(isPresented: $showHelp) {
@@ -103,8 +119,46 @@ struct WidgetConfigurationView: View {
                     dismissButton: .default(Text("OK"))
                 )
             }
+            .alert(
+                Text("Unsaved Changes"),
+                isPresented: Binding(
+                    get: { pendingNavigation != nil },
+                    set: { if !$0 { pendingNavigation = nil } }
+                )
+            ) {
+                Button("Save") {
+                    if saveConfigurationAndReturnSuccess(), let pendingNavigation {
+                        performPendingNavigation(pendingNavigation)
+                    }
+                    pendingNavigation = nil
+                }
+                Button("Discard", role: .destructive) {
+                    if let pendingNavigation {
+                        discardEditorChanges()
+                        performPendingNavigation(pendingNavigation)
+                    }
+                    pendingNavigation = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingNavigation = nil
+                }
+            } message: {
+                Text("Save your edits first, or discard them to continue.")
+            }
+            .confirmationDialog(
+                Text("Delete Design"),
+                isPresented: $showDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Design", role: .destructive) {
+                    deleteCurrentDesign()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This design will be removed from your portfolio. This can’t be undone.")
+            }
             .onAppear {
-                loadExistingConfiguration()
+                loadPortfolioIntoEditor()
                 isLiveActivityActive = LiveActivityController.isActivityInProgress
                 if !hasSeenOnboarding {
                     showOnboarding = true
@@ -114,9 +168,7 @@ struct WidgetConfigurationView: View {
                 openEditorFromDeepLink()
             }
             .onChange(of: selectedPhotoItem) { _, newItem in
-                Task {
-                    await importSelectedPhoto(newItem)
-                }
+                Task { await importSelectedPhoto(newItem) }
             }
             .onChange(of: configuration.title) { _, newValue in
                 if newValue.count > SharedWidgetConfiguration.titleLimit {
@@ -133,7 +185,89 @@ struct WidgetConfigurationView: View {
                     configuration.emoji = String(newValue.prefix(SharedWidgetConfiguration.emojiLimit))
                 }
             }
+            .onChange(of: designName) { _, newValue in
+                if newValue.count > WidgetDesign.nameLimit {
+                    designName = String(newValue.prefix(WidgetDesign.nameLimit))
+                }
+            }
         }
+    }
+
+    // MARK: - Sections
+
+    private var portfolioSection: some View {
+        Section {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(portfolio.designs) { design in
+                        portfolioCard(design)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+
+            TextField("Design Name", text: $designName)
+                .textInputAutocapitalization(.words)
+                .accessibilityLabel(Text("Design Name"))
+
+            HStack(spacing: 12) {
+                Button {
+                    createDesign(copying: false)
+                } label: {
+                    Label("New Design", systemImage: "plus.square.on.square")
+                }
+                .disabled(portfolio.designs.count >= WidgetPortfolio.maxDesigns)
+
+                Button {
+                    createDesign(copying: true)
+                } label: {
+                    Label("Duplicate", systemImage: "doc.on.doc")
+                }
+                .disabled(portfolio.designs.count >= WidgetPortfolio.maxDesigns)
+            }
+
+            if portfolio.designs.count > 1 {
+                Button("Delete Design", role: .destructive) {
+                    requestDeleteDesign()
+                }
+            }
+        } header: {
+            Text("Portfolio")
+        } footer: {
+            Text("Save multiple looks, then pick one when you add a Home Screen widget.")
+        }
+    }
+
+    private func portfolioCard(_ design: WidgetDesign) -> some View {
+        let isSelected = design.id == portfolio.selectedDesignID
+        let thumb = design.id == portfolio.selectedDesignID ? previewImage : loadThumb(for: design)
+
+        return Button {
+            selectDesign(design.id)
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                WidgetPreviewContent(
+                    configuration: design.id == portfolio.selectedDesignID ? draftConfiguration : design.configuration,
+                    backgroundImage: thumb,
+                    isCompact: true
+                )
+                .frame(width: 108, height: 108)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
+                }
+
+                Text(design.id == portfolio.selectedDesignID ? (designName.isEmpty ? design.displayName : designName) : design.displayName)
+                    .font(.caption.weight(isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .lineLimit(1)
+                    .frame(width: 108, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(design.displayName))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var previewSection: some View {
@@ -142,17 +276,28 @@ struct WidgetConfigurationView: View {
                 WidgetPreviewContent(
                     configuration: draftConfiguration,
                     backgroundImage: previewImage,
-                    showsTimestamp: true,
-                    showsProgress: true,
                     isCompact: true
                 )
                 .frame(width: 155, height: 155)
                 .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Live Preview")
-                        .font(.headline)
-                    Text("Changes appear here instantly. Tap Save to update your Home Screen widget.")
+                    HStack {
+                        Text("Live Preview")
+                            .font(.headline)
+                        if hasUnsavedChanges {
+                            Text("Unsaved")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(Color.orange.opacity(0.18)))
+                                .foregroundStyle(.orange)
+                                .accessibilityLabel(Text("Unsaved changes"))
+                        }
+                    }
+                    Text(hasUnsavedChanges
+                         ? String(localized: "You have unsaved edits. Tap Save to update Home Screen widgets.")
+                         : String(localized: "Changes appear here instantly. Tap Save to update your Home Screen widget."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -165,44 +310,82 @@ struct WidgetConfigurationView: View {
         }
     }
 
-    private var textSection: some View {
+    private var showsText: Bool {
+        configuration.showsTitle || configuration.showsSubtitle || configuration.showsEmoji
+    }
+
+    private var showsTextBinding: Binding<Bool> {
+        Binding(
+            get: { showsText },
+            set: { enabled in
+                configuration.showsTitle = enabled
+                configuration.showsSubtitle = enabled
+                configuration.showsEmoji = enabled
+            }
+        )
+    }
+
+    private var contentVisibilitySection: some View {
         Section {
-            TextField("Title", text: $configuration.title)
-                .textInputAutocapitalization(.sentences)
-                .accessibilityLabel(Text("Widget title"))
-
-            TextField("Subtitle", text: $configuration.subtitle)
-                .textInputAutocapitalization(.sentences)
-                .accessibilityLabel(Text("Widget subtitle"))
-
-            TextField("Emoji", text: $configuration.emoji)
-                .accessibilityLabel(Text("Widget emoji"))
-                .accessibilityHint(Text("Paste or type an emoji"))
+            Toggle("Show Text", isOn: showsTextBinding)
+            Toggle("Show Progress", isOn: $configuration.showsProgress)
+            Toggle("Show Time", isOn: $configuration.showsTimestamp)
         } header: {
-            Text("Text")
+            Text("Content")
         } footer: {
-            Text(L10n.titleSubtitleLimits(titleLimit: SharedWidgetConfiguration.titleLimit, subtitleLimit: SharedWidgetConfiguration.subtitleLimit))
+            Text("Turn off Show Text for a photo- or color-only widget with nothing overlaid on top.")
+        }
+    }
+
+    @ViewBuilder
+    private var textSection: some View {
+        if showsText {
+            Section {
+                TextField("Title", text: $configuration.title)
+                    .textInputAutocapitalization(.sentences)
+                    .accessibilityLabel(Text("Widget title"))
+
+                TextField("Subtitle", text: $configuration.subtitle)
+                    .textInputAutocapitalization(.sentences)
+                    .accessibilityLabel(Text("Widget subtitle"))
+
+                TextField("Emoji", text: $configuration.emoji)
+                    .accessibilityLabel(Text("Widget emoji"))
+                    .accessibilityHint(Text("Paste or type an emoji"))
+            } header: {
+                Text("Text")
+            } footer: {
+                Text(L10n.titleSubtitleLimits(
+                    titleLimit: SharedWidgetConfiguration.titleLimit,
+                    subtitleLimit: SharedWidgetConfiguration.subtitleLimit
+                ))
+            }
         }
     }
 
     private var styleSection: some View {
         Section("Style") {
             ColorPicker("Background", selection: $backgroundColor, supportsOpacity: false)
-            ColorPicker("Text", selection: $textColor, supportsOpacity: false)
 
-            Picker("Font", selection: $selectedFont) {
-                ForEach(WidgetFontOption.allCases) { option in
-                    Text(option.localizedName).tag(option)
+            if showsText || configuration.showsProgress || configuration.showsTimestamp {
+                ColorPicker("Text", selection: $textColor, supportsOpacity: false)
+
+                Picker("Font", selection: $selectedFont) {
+                    ForEach(WidgetFontOption.allCases) { option in
+                        Text(option.localizedName).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel(Text("Font style"))
+
+                if showsText {
+                    Text("The quick brown fox")
+                        .font(selectedFont.font(size: 17))
+                        .foregroundStyle(textColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel(Text("Font preview"))
                 }
             }
-            .pickerStyle(.segmented)
-            .accessibilityLabel(Text("Font style"))
-
-            Text("The quick brown fox")
-                .font(selectedFont.font(size: 17))
-                .foregroundStyle(textColor)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityLabel(Text("Font preview"))
         }
     }
 
@@ -249,21 +432,30 @@ struct WidgetConfigurationView: View {
         }
     }
 
+    @ViewBuilder
+    private var progressSection: some View {
+        if configuration.showsProgress {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Progress")
+                        Spacer()
+                        Text(LocaleFormatting.percent(configuration.progress))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    Slider(value: $configuration.progress, in: 0...1, step: 0.01)
+                        .accessibilityLabel(Text("Widget progress"))
+                        .accessibilityValue(L10n.accessibilityPercent(configuration.progress))
+                }
+            } header: {
+                Text("Progress")
+            }
+        }
+    }
+
     private var liveActivitySection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Progress")
-                    Spacer()
-                    Text(LocaleFormatting.percent(configuration.progress))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-                Slider(value: $configuration.progress, in: 0...1, step: 0.01)
-                    .accessibilityLabel(Text("Widget progress"))
-                    .accessibilityValue(L10n.accessibilityPercent(configuration.progress))
-            }
-
             Text(isLiveActivityActive
                  ? String(localized: "Dynamic Island and Lock Screen are showing your widget.")
                  : String(localized: "Mirror your design on Dynamic Island and the Lock Screen."))
@@ -300,48 +492,173 @@ struct WidgetConfigurationView: View {
             } label: {
                 Label("Save & Refresh Widgets", systemImage: "arrow.triangle.2.circlepath")
             }
-            .disabled(isSaving || isImportingPhoto)
+            .disabled(isSaving || isImportingPhoto || !hasUnsavedChanges)
         } footer: {
-            Text("After saving, your Home Screen widget updates automatically.")
+            Text("After saving, long-press a Home Screen widget and choose Edit Widget to pick a design from your portfolio.")
         }
     }
 
     private var savedBanner: some View {
-        Text("Saved — Home Screen widgets refreshed")
-            .font(.subheadline.weight(.medium))
+        VStack(spacing: 4) {
+            Text("Saved — Home Screen widgets refreshed")
+                .font(.subheadline.weight(.medium))
+            if !hasSeenAssignDesignTip {
+                Text("Tip: long-press a widget → Edit Widget to choose a design.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private var assignDesignTipBanner: some View {
+        Text("Tip: long-press a widget → Edit Widget to choose a design.")
+            .font(.subheadline)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
             .background(.ultraThinMaterial)
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .accessibilityAddTraits(.updatesFrequently)
+            .onTapGesture {
+                withAnimation {
+                    showAssignDesignTip = false
+                    hasSeenAssignDesignTip = true
+                }
+            }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(Text("Dismiss tip"))
     }
 
-    private func openEditorFromDeepLink() {
-        hasSeenOnboarding = true
-        showOnboarding = false
-        showHelp = false
-        isLiveActivityActive = LiveActivityController.isActivityInProgress
-        loadExistingConfiguration()
+    // MARK: - Portfolio actions
+
+    private func selectDesign(_ id: String) {
+        guard id != portfolio.selectedDesignID else { return }
+        if hasUnsavedChanges {
+            pendingNavigation = .select(id)
+            return
+        }
+        performSelectDesign(id)
     }
 
-    private func loadExistingConfiguration() {
-        guard let saved = SharedDataStore.load() else { return }
-        configuration = saved
-        backgroundColor = Color(hex: saved.backgroundColorHex) ?? .green
-        textColor = Color(hex: saved.textColorHex) ?? .black
-        selectedFont = WidgetFontOption(rawValue: saved.fontName) ?? .system
+    private func createDesign(copying: Bool) {
+        if hasUnsavedChanges {
+            pendingNavigation = .create(copying: copying)
+            return
+        }
+        performCreateDesign(copying: copying)
+    }
+
+    private func requestDeleteDesign() {
+        if hasUnsavedChanges {
+            pendingNavigation = .delete
+            return
+        }
+        showDeleteConfirmation = true
+    }
+
+    private func performPendingNavigation(_ pending: PendingNavigation) {
+        switch pending {
+        case .select(let id):
+            performSelectDesign(id)
+        case .create(let copying):
+            performCreateDesign(copying: copying)
+        case .delete:
+            showDeleteConfirmation = true
+        }
+    }
+
+    private func performSelectDesign(_ id: String) {
+        portfolio.select(id)
+        applySelectedDesignToEditor()
+        clearPendingImageState()
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    private func performCreateDesign(copying: Bool) {
+        let created = copying ? portfolio.duplicateSelected() : portfolio.addDesign()
+        guard created != nil else {
+            alertMessage = AlertMessage(
+                title: String(localized: "Portfolio Full"),
+                message: L10n.portfolioFull
+            )
+            return
+        }
+        applySelectedDesignToEditor()
+        clearPendingImageState()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func deleteCurrentDesign() {
+        let removedImage = portfolio.selectedDesign.configuration.backgroundImageFileName
+        guard portfolio.deleteSelected() else { return }
+        if let removedImage,
+           !portfolio.designs.contains(where: { $0.configuration.backgroundImageFileName == removedImage }) {
+            SharedImageStore.deleteImage(fileName: removedImage)
+        }
+        applySelectedDesignToEditor()
+        clearPendingImageState()
+        _ = SharedDataStore.savePortfolio(portfolio)
+        WidgetCenter.shared.reloadAllTimelines()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    private func discardEditorChanges() {
+        applySelectedDesignToEditor()
+        clearPendingImageState()
+    }
+
+    private func clearPendingImageState() {
         pendingImageData = nil
         pendingRemoveImage = false
         selectedPhotoItem = nil
+    }
 
-        if let fileName = saved.backgroundImageFileName,
+    private func applySelectedDesignToEditor() {
+        let design = portfolio.selectedDesign
+        designName = design.name
+        configuration = design.configuration
+        backgroundColor = Color(hex: design.configuration.backgroundColorHex) ?? .green
+        textColor = Color(hex: design.configuration.textColorHex) ?? .black
+        selectedFont = WidgetFontOption(rawValue: design.configuration.fontName) ?? .system
+        if let fileName = design.configuration.backgroundImageFileName,
            let data = SharedImageStore.loadImageData(fileName: fileName),
            let image = UIImage(data: data) {
             previewImage = image
         } else {
             previewImage = nil
         }
+    }
+
+    private func loadThumb(for design: WidgetDesign) -> UIImage? {
+        guard
+            let fileName = design.configuration.backgroundImageFileName,
+            let data = SharedImageStore.loadImageData(fileName: fileName)
+        else {
+            return nil
+        }
+        return UIImage(data: data)
+    }
+
+    // MARK: - Persistence
+
+    private func openEditorFromDeepLink() {
+        hasSeenOnboarding = true
+        showOnboarding = false
+        showHelp = false
+        isLiveActivityActive = LiveActivityController.isActivityInProgress
+        loadPortfolioIntoEditor()
+    }
+
+    private func loadPortfolioIntoEditor() {
+        portfolio = SharedDataStore.loadPortfolio()
+        applySelectedDesignToEditor()
+        clearPendingImageState()
     }
 
     private func importSelectedPhoto(_ item: PhotosPickerItem?) async {
@@ -358,7 +675,6 @@ struct WidgetConfigurationView: View {
             return
         }
 
-        // Keep the photo in memory until Save so quitting without Save leaves disk untouched.
         pendingImageData = data
         pendingRemoveImage = false
         previewImage = UIImage(data: data)
@@ -372,10 +688,13 @@ struct WidgetConfigurationView: View {
     }
 
     private func commitPendingImageChanges(into draft: inout SharedWidgetConfiguration) -> Bool {
-        let previousFileName = SharedDataStore.load()?.backgroundImageFileName
+        let previousFileName = portfolio.selectedDesign.configuration.backgroundImageFileName
 
         if pendingRemoveImage {
-            if let previousFileName {
+            if let previousFileName,
+               !portfolio.designs.contains(where: {
+                   $0.id != portfolio.selectedDesignID && $0.configuration.backgroundImageFileName == previousFileName
+               }) {
                 SharedImageStore.deleteImage(fileName: previousFileName)
             }
             draft.backgroundImageFileName = nil
@@ -387,7 +706,11 @@ struct WidgetConfigurationView: View {
         if let pendingImageData {
             do {
                 let fileName = try SharedImageStore.saveImageData(pendingImageData)
-                if let previousFileName, previousFileName != fileName {
+                if let previousFileName,
+                   previousFileName != fileName,
+                   !portfolio.designs.contains(where: {
+                       $0.id != portfolio.selectedDesignID && $0.configuration.backgroundImageFileName == previousFileName
+                   }) {
                     SharedImageStore.deleteImage(fileName: previousFileName)
                 }
                 draft.backgroundImageFileName = fileName
@@ -409,21 +732,31 @@ struct WidgetConfigurationView: View {
     }
 
     private func saveConfiguration() {
+        _ = saveConfigurationAndReturnSuccess()
+    }
+
+    @discardableResult
+    private func saveConfigurationAndReturnSuccess() -> Bool {
         isSaving = true
         defer { isSaving = false }
 
         var draft = draftConfiguration
-        guard commitPendingImageChanges(into: &draft) else { return }
+        guard commitPendingImageChanges(into: &draft) else { return false }
 
         configuration = draft
+        portfolio.updateSelected(draft, name: designName)
 
-        guard SharedDataStore.save(draft) else {
+        guard SharedDataStore.savePortfolio(portfolio) else {
             alertMessage = AlertMessage(
                 title: String(localized: "Couldn't Save"),
                 message: L10n.sharedStorageUnavailable
             )
-            return
+            return false
         }
+
+        portfolio = SharedDataStore.loadPortfolio()
+        applySelectedDesignToEditor()
+        clearPendingImageState()
 
         WidgetCenter.shared.reloadAllTimelines()
 
@@ -435,27 +768,34 @@ struct WidgetConfigurationView: View {
 
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         withAnimation(.easeOut(duration: 0.25)) {
+            showAssignDesignTip = false
             showSavedBanner = true
         }
         Task {
-            try? await Task.sleep(for: .seconds(2.2))
+            try? await Task.sleep(for: .seconds(hasSeenAssignDesignTip ? 2.2 : 3.4))
             withAnimation(.easeIn(duration: 0.2)) {
                 showSavedBanner = false
             }
+            if !hasSeenAssignDesignTip {
+                hasSeenAssignDesignTip = true
+            }
         }
+        return true
     }
 
     private func persistDraftForLiveActivity() -> SharedWidgetConfiguration? {
         var draft = draftConfiguration
         guard commitPendingImageChanges(into: &draft) else { return nil }
         configuration = draft
-        guard SharedDataStore.save(draft) else {
+        portfolio.updateSelected(draft, name: designName)
+        guard SharedDataStore.savePortfolio(portfolio) else {
             alertMessage = AlertMessage(
                 title: String(localized: "Couldn't Save"),
                 message: L10n.sharedStorageUnavailable
             )
             return nil
         }
+        portfolio = SharedDataStore.loadPortfolio()
         return draft
     }
 
@@ -491,6 +831,12 @@ struct WidgetConfigurationView: View {
     }
 }
 
+private enum PendingNavigation: Equatable {
+    case select(String)
+    case create(copying: Bool)
+    case delete
+}
+
 private struct AlertMessage: Identifiable {
     let id = UUID()
     let title: String
@@ -516,19 +862,19 @@ private struct OnboardingSheet: View {
 
                 VStack(alignment: .leading, spacing: 16) {
                     onboardingRow(
+                        icon: "square.stack.3d.up.fill",
+                        title: String(localized: "Build a portfolio"),
+                        detail: String(localized: "Save many looks and pick one for each Home Screen widget.")
+                    )
+                    onboardingRow(
                         icon: "paintbrush.fill",
                         title: String(localized: "Customize"),
                         detail: String(localized: "Pick colors, fonts, emoji, and a photo background.")
                     )
                     onboardingRow(
-                        icon: "square.grid.2x2.fill",
-                        title: String(localized: "Add the widget"),
-                        detail: String(localized: "Long-press your Home Screen, tap Edit, then Add Widget.")
-                    )
-                    onboardingRow(
-                        icon: "lock.iphone",
-                        title: String(localized: "Dynamic Island"),
-                        detail: String(localized: "Start a Live Activity anytime to pin your design to the Lock Screen.")
+                        icon: "switch.2",
+                        title: String(localized: "Keep it minimal"),
+                        detail: String(localized: "Hide title, subtitle, emoji, progress, or time anytime.")
                     )
                 }
 
@@ -580,16 +926,17 @@ private struct HelpSheet: View {
         NavigationStack {
             List {
                 Section {
-                    labeledStep(number: 1, text: String(localized: "Customize your design in this app, then tap Save."))
+                    labeledStep(number: 1, text: String(localized: "Create designs in your portfolio, then tap Save."))
                     labeledStep(number: 2, text: String(localized: "On your Home Screen, touch and hold an empty area until the apps jiggle."))
                     labeledStep(number: 3, text: String(localized: "Tap Edit in the corner, then Add Widget."))
                     labeledStep(number: 4, text: String(localized: "Search for “Buggy Widget”, choose Small or Medium, and tap Add."))
+                    labeledStep(number: 5, text: String(localized: "Long-press the widget, tap Edit Widget, and pick a design from your portfolio."))
                 } header: {
                     Text("Home Screen widget")
                 }
 
                 Section {
-                    Text("Use Start Live Activity to show your design on Dynamic Island and the Lock Screen. Update anytime after you change progress or text.")
+                    Text("Use Start Live Activity to show your current design on Dynamic Island and the Lock Screen.")
                 } header: {
                     Text("Live Activity")
                 }

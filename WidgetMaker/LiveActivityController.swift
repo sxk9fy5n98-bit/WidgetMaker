@@ -53,7 +53,12 @@ enum LiveActivityController {
             accentColorHex: configuration.backgroundColorHex,
             textColorHex: configuration.textColorHex,
             fontName: configuration.fontName,
-            backgroundImageFileName: configuration.backgroundImageFileName
+            backgroundImageFileName: configuration.backgroundImageFileName,
+            showsEmoji: configuration.showsEmoji,
+            showsTitle: configuration.showsTitle,
+            showsSubtitle: configuration.showsSubtitle,
+            showsProgress: configuration.showsProgress,
+            showsDetail: configuration.showsTimestamp
         )
     }
 }

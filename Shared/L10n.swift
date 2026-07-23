@@ -10,6 +10,29 @@ enum L10n {
         String(localized: "Created with Buggy Widget", comment: "Default widget subtitle")
     }
 
+    static var defaultDesignName: String {
+        String(localized: "Design 1", comment: "Name of the first design in a new portfolio")
+    }
+
+    static var untitledDesign: String {
+        String(localized: "Untitled Design", comment: "Fallback name when a design name is empty")
+    }
+
+    static func newDesignName(index: Int) -> String {
+        String(localized: "Design \(index)", comment: "Auto name for a newly created design")
+    }
+
+    static func duplicatedDesignName(_ name: String) -> String {
+        String(localized: "\(name) Copy", comment: "Name for a duplicated design")
+    }
+
+    static var portfolioFull: String {
+        String(
+            localized: "You’ve reached the maximum of \(WidgetPortfolio.maxDesigns) designs.",
+            comment: "Alert when the portfolio is full"
+        )
+    }
+
     static var liveActivityActiveStatus: String {
         String(localized: "Active", comment: "Fallback Live Activity status when subtitle is empty")
     }

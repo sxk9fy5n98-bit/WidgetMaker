@@ -15,51 +15,75 @@ struct WidgetUtilityLiveActivity: Widget {
         } dynamicIsland: { context in
             let accent = accentColor(for: context.state)
             let fontOption = WidgetFontOption.resolve(context.state.fontName)
+            let state = context.state
 
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Text(context.state.emoji)
-                        .font(.title2)
-                        .accessibilityLabel(Text("Status emoji"))
+                    if state.showsEmoji {
+                        Text(state.emoji)
+                            .font(.title2)
+                            .accessibilityLabel(Text("Status emoji"))
+                    }
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(LocaleFormatting.percent(context.state.progress))
-                        .font(.caption.weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(accent)
-                        .accessibilityLabel(L10n.accessibilityPercent(context.state.progress))
+                    if state.showsProgress {
+                        Text(LocaleFormatting.percent(state.progress))
+                            .font(.caption.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(accent)
+                            .accessibilityLabel(L10n.accessibilityPercent(state.progress))
+                    }
                 }
 
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.state.title)
-                        .font(fontOption.font(size: 17, weight: .semibold))
-                        .lineLimit(1)
+                    if state.showsTitle {
+                        Text(state.title)
+                            .font(fontOption.font(size: 17, weight: .semibold))
+                            .lineLimit(1)
+                    }
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(context.state.status)
-                            .font(fontOption.font(size: 14))
-                            .lineLimit(1)
+                        if state.showsSubtitle {
+                            Text(state.status)
+                                .font(fontOption.font(size: 14))
+                                .lineLimit(1)
+                        }
 
-                        ProgressView(value: context.state.progress)
-                            .tint(accent)
+                        if state.showsProgress {
+                            ProgressView(value: state.progress)
+                                .tint(accent)
+                        }
 
-                        Text(context.state.detail)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        if state.showsDetail {
+                            Text(state.detail)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             } compactLeading: {
-                Text(context.state.emoji)
+                if state.showsEmoji {
+                    Text(state.emoji)
+                } else if state.showsTitle {
+                    Text(String(state.title.prefix(1)))
+                }
             } compactTrailing: {
-                Text(LocaleFormatting.percent(context.state.progress))
-                    .font(.caption2.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(accent)
+                if state.showsProgress {
+                    Text(LocaleFormatting.percent(state.progress))
+                        .font(.caption2.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(accent)
+                }
             } minimal: {
-                Text(context.state.emoji)
+                if state.showsEmoji {
+                    Text(state.emoji)
+                } else if state.showsProgress {
+                    Text(LocaleFormatting.percent(state.progress))
+                        .font(.caption2.weight(.semibold))
+                }
             }
             .widgetURL(URL(string: "buggywidget://editor"))
         }
@@ -71,38 +95,51 @@ struct WidgetUtilityLiveActivity: Widget {
         let textColor = Color(hex: context.state.textColorHex) ?? .white
         let fontOption = WidgetFontOption.resolve(context.state.fontName)
         let backgroundImage = loadBackgroundImage(fileName: context.state.backgroundImageFileName)
+        let state = context.state
 
         HStack(spacing: 12) {
-            Text(context.state.emoji)
-                .font(.largeTitle)
-                .accessibilityHidden(true)
+            if state.showsEmoji {
+                Text(state.emoji)
+                    .font(.largeTitle)
+                    .accessibilityHidden(true)
+            }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(context.state.title)
-                    .font(fontOption.font(size: 17, weight: .semibold))
-                    .foregroundStyle(textColor)
-                    .lineLimit(1)
+                if state.showsTitle {
+                    Text(state.title)
+                        .font(fontOption.font(size: 17, weight: .semibold))
+                        .foregroundStyle(textColor)
+                        .lineLimit(1)
+                }
 
-                Text(context.state.status)
-                    .font(fontOption.font(size: 14))
-                    .foregroundStyle(textColor.opacity(0.85))
-                    .lineLimit(1)
+                if state.showsSubtitle {
+                    Text(state.status)
+                        .font(fontOption.font(size: 14))
+                        .foregroundStyle(textColor.opacity(0.85))
+                        .lineLimit(1)
+                }
 
-                ProgressView(value: context.state.progress)
-                    .tint(accent)
+                if state.showsProgress {
+                    ProgressView(value: state.progress)
+                        .tint(accent)
+                }
 
-                Text(context.state.detail)
-                    .font(.caption2)
-                    .foregroundStyle(textColor.opacity(0.7))
+                if state.showsDetail {
+                    Text(state.detail)
+                        .font(.caption2)
+                        .foregroundStyle(textColor.opacity(0.7))
+                }
             }
 
             Spacer(minLength: 0)
 
-            Text(LocaleFormatting.percent(context.state.progress))
-                .font(.title3.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(textColor)
-                .accessibilityLabel(L10n.accessibilityPercent(context.state.progress))
+            if state.showsProgress {
+                Text(LocaleFormatting.percent(state.progress))
+                    .font(.title3.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(textColor)
+                    .accessibilityLabel(L10n.accessibilityPercent(state.progress))
+            }
         }
         .padding()
         .background {
@@ -149,6 +186,11 @@ struct WidgetUtilityLiveActivity: Widget {
         accentColorHex: SharedWidgetConfiguration.default.backgroundColorHex,
         textColorHex: SharedWidgetConfiguration.default.textColorHex,
         fontName: WidgetFontOption.system.rawValue,
-        backgroundImageFileName: nil
+        backgroundImageFileName: nil,
+        showsEmoji: true,
+        showsTitle: true,
+        showsSubtitle: true,
+        showsProgress: true,
+        showsDetail: true
     )
 }

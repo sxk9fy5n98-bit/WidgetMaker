@@ -13,6 +13,11 @@ struct WidgetUtilityAttributes: ActivityAttributes {
         var textColorHex: String
         var fontName: String
         var backgroundImageFileName: String?
+        var showsEmoji: Bool
+        var showsTitle: Bool
+        var showsSubtitle: Bool
+        var showsProgress: Bool
+        var showsDetail: Bool
     }
 
     /// Stable identity for this Live Activity kind.
