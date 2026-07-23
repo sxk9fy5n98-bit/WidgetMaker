@@ -91,7 +91,7 @@ enum SharedImageStoreError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .containerUnavailable:
-            return "Shared storage is unavailable. Check App Group settings."
+            return L10n.sharedStorageUnavailableShort
         }
     }
 }

@@ -12,16 +12,19 @@ struct SharedWidgetConfiguration: Codable, Equatable {
     /// Filename only — image bytes live in the App Group container via FileManager.
     var backgroundImageFileName: String?
 
-    static let `default` = SharedWidgetConfiguration(
-        title: "My Widget",
-        subtitle: "Created with Buggy Widget",
-        emoji: "🐛",
-        backgroundColorHex: "#AAFF8E",
-        textColorHex: "#000000",
-        fontName: "System",
-        progress: 0.65,
-        backgroundImageFileName: nil
-    )
+    /// Localized defaults for first launch (evaluated at access time).
+    static var `default`: SharedWidgetConfiguration {
+        SharedWidgetConfiguration(
+            title: L10n.defaultWidgetTitle,
+            subtitle: L10n.defaultWidgetSubtitle,
+            emoji: "🐛",
+            backgroundColorHex: "#AAFF8E",
+            textColorHex: "#000000",
+            fontName: WidgetFontOption.system.rawValue,
+            progress: 0.65,
+            backgroundImageFileName: nil
+        )
+    }
 
     static let titleLimit = 40
     static let subtitleLimit = 60

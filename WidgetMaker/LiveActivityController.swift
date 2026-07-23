@@ -46,8 +46,8 @@ enum LiveActivityController {
     private static func contentState(from configuration: SharedWidgetConfiguration) -> WidgetUtilityAttributes.ContentState {
         WidgetUtilityAttributes.ContentState(
             title: configuration.displayTitle,
-            status: configuration.displaySubtitle.isEmpty ? "Active" : configuration.displaySubtitle,
-            detail: "Updated \(formattedNow())",
+            status: configuration.displaySubtitle.isEmpty ? L10n.liveActivityActiveStatus : configuration.displaySubtitle,
+            detail: LocaleFormatting.updatedAt(),
             progress: configuration.clampedProgress,
             emoji: configuration.displayEmoji,
             accentColorHex: configuration.backgroundColorHex,
@@ -55,12 +55,6 @@ enum LiveActivityController {
             fontName: configuration.fontName,
             backgroundImageFileName: configuration.backgroundImageFileName
         )
-    }
-
-    private static func formattedNow() -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: Date())
     }
 }
 
@@ -70,7 +64,7 @@ enum LiveActivityError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notEnabled:
-            return "Live Activities are turned off. Enable them in Settings → Buggy Widget → Live Activities."
+            return L10n.liveActivitiesDisabled
         }
     }
 }

@@ -8,6 +8,20 @@ enum WidgetFontOption: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Localized label for pickers; `rawValue` stays stable for persistence.
+    var localizedName: String {
+        switch self {
+        case .system:
+            return String(localized: "System", comment: "System font option")
+        case .rounded:
+            return String(localized: "Rounded", comment: "Rounded font option")
+        case .serif:
+            return String(localized: "Serif", comment: "Serif font option")
+        case .monospaced:
+            return String(localized: "Monospaced", comment: "Monospaced font option")
+        }
+    }
+
     func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         switch self {
         case .system:

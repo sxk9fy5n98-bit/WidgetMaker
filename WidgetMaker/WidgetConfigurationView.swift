@@ -64,7 +64,7 @@ struct WidgetConfigurationView: View {
                     } label: {
                         Image(systemName: "questionmark.circle")
                     }
-                    .accessibilityLabel("How to use")
+                    .accessibilityLabel(Text("How to use"))
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -79,7 +79,7 @@ struct WidgetConfigurationView: View {
                         }
                     }
                     .disabled(isSaving || isImportingPhoto)
-                    .accessibilityHint("Saves your design and refreshes Home Screen widgets")
+                    .accessibilityHint(Text("Saves your design and refreshes Home Screen widgets"))
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -169,19 +169,19 @@ struct WidgetConfigurationView: View {
         Section {
             TextField("Title", text: $configuration.title)
                 .textInputAutocapitalization(.sentences)
-                .accessibilityLabel("Widget title")
+                .accessibilityLabel(Text("Widget title"))
 
             TextField("Subtitle", text: $configuration.subtitle)
                 .textInputAutocapitalization(.sentences)
-                .accessibilityLabel("Widget subtitle")
+                .accessibilityLabel(Text("Widget subtitle"))
 
             TextField("Emoji", text: $configuration.emoji)
-                .accessibilityLabel("Widget emoji")
-                .accessibilityHint("Paste or type an emoji")
+                .accessibilityLabel(Text("Widget emoji"))
+                .accessibilityHint(Text("Paste or type an emoji"))
         } header: {
             Text("Text")
         } footer: {
-            Text("Title up to \(SharedWidgetConfiguration.titleLimit) characters. Subtitle up to \(SharedWidgetConfiguration.subtitleLimit).")
+            Text(L10n.titleSubtitleLimits(titleLimit: SharedWidgetConfiguration.titleLimit, subtitleLimit: SharedWidgetConfiguration.subtitleLimit))
         }
     }
 
@@ -192,17 +192,17 @@ struct WidgetConfigurationView: View {
 
             Picker("Font", selection: $selectedFont) {
                 ForEach(WidgetFontOption.allCases) { option in
-                    Text(option.rawValue).tag(option)
+                    Text(option.localizedName).tag(option)
                 }
             }
             .pickerStyle(.segmented)
-            .accessibilityLabel("Font style")
+            .accessibilityLabel(Text("Font style"))
 
             Text("The quick brown fox")
                 .font(selectedFont.font(size: 17))
                 .foregroundStyle(textColor)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityLabel("Font preview")
+                .accessibilityLabel(Text("Font preview"))
         }
     }
 
@@ -215,7 +215,7 @@ struct WidgetConfigurationView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 160)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .accessibilityLabel("Selected background image")
+                    .accessibilityLabel(Text("Selected background image"))
             }
 
             PhotosPicker(
@@ -224,10 +224,11 @@ struct WidgetConfigurationView: View {
                 photoLibrary: .shared()
             ) {
                 HStack {
-                    Label(
-                        hasBackgroundImageInDraft ? "Replace Image" : "Choose Image",
-                        systemImage: "photo.on.rectangle"
-                    )
+                    Label {
+                        Text(hasBackgroundImageInDraft ? "Replace Image" : "Choose Image")
+                    } icon: {
+                        Image(systemName: "photo.on.rectangle")
+                    }
                     Spacer()
                     if isImportingPhoto {
                         ProgressView()
@@ -254,18 +255,18 @@ struct WidgetConfigurationView: View {
                 HStack {
                     Text("Progress")
                     Spacer()
-                    Text("\(Int(configuration.progress * 100))%")
+                    Text(LocaleFormatting.percent(configuration.progress))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
                 Slider(value: $configuration.progress, in: 0...1, step: 0.01)
-                    .accessibilityLabel("Widget progress")
-                    .accessibilityValue("\(Int(configuration.progress * 100)) percent")
+                    .accessibilityLabel(Text("Widget progress"))
+                    .accessibilityValue(L10n.accessibilityPercent(configuration.progress))
             }
 
             Text(isLiveActivityActive
-                 ? "Dynamic Island and Lock Screen are showing your widget."
-                 : "Mirror your design on Dynamic Island and the Lock Screen.")
+                 ? String(localized: "Dynamic Island and Lock Screen are showing your widget.")
+                 : String(localized: "Mirror your design on Dynamic Island and the Lock Screen."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -351,8 +352,8 @@ struct WidgetConfigurationView: View {
 
         guard let data = try? await item.loadTransferable(type: Data.self) else {
             alertMessage = AlertMessage(
-                title: "Couldn't Load Photo",
-                message: "Try choosing a different image from your library."
+                title: String(localized: "Couldn't Load Photo"),
+                message: String(localized: "Try choosing a different image from your library.")
             )
             return
         }
@@ -397,7 +398,7 @@ struct WidgetConfigurationView: View {
                 return true
             } catch {
                 alertMessage = AlertMessage(
-                    title: "Couldn't Save Photo",
+                    title: String(localized: "Couldn't Save Photo"),
                     message: error.localizedDescription
                 )
                 return false
@@ -418,8 +419,8 @@ struct WidgetConfigurationView: View {
 
         guard SharedDataStore.save(draft) else {
             alertMessage = AlertMessage(
-                title: "Couldn't Save",
-                message: "Shared storage is unavailable. Make sure App Groups are enabled for this app."
+                title: String(localized: "Couldn't Save"),
+                message: L10n.sharedStorageUnavailable
             )
             return
         }
@@ -450,8 +451,8 @@ struct WidgetConfigurationView: View {
         configuration = draft
         guard SharedDataStore.save(draft) else {
             alertMessage = AlertMessage(
-                title: "Couldn't Save",
-                message: "Shared storage is unavailable. Make sure App Groups are enabled for this app."
+                title: String(localized: "Couldn't Save"),
+                message: L10n.sharedStorageUnavailable
             )
             return nil
         }
@@ -468,7 +469,7 @@ struct WidgetConfigurationView: View {
             WidgetCenter.shared.reloadAllTimelines()
         } catch {
             alertMessage = AlertMessage(
-                title: "Couldn't Start Live Activity",
+                title: String(localized: "Couldn't Start Live Activity"),
                 message: error.localizedDescription
             )
         }
@@ -516,18 +517,18 @@ private struct OnboardingSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     onboardingRow(
                         icon: "paintbrush.fill",
-                        title: "Customize",
-                        detail: "Pick colors, fonts, emoji, and a photo background."
+                        title: String(localized: "Customize"),
+                        detail: String(localized: "Pick colors, fonts, emoji, and a photo background.")
                     )
                     onboardingRow(
                         icon: "square.grid.2x2.fill",
-                        title: "Add the widget",
-                        detail: "Long-press your Home Screen, tap Edit, then Add Widget."
+                        title: String(localized: "Add the widget"),
+                        detail: String(localized: "Long-press your Home Screen, tap Edit, then Add Widget.")
                     )
                     onboardingRow(
                         icon: "lock.iphone",
-                        title: "Dynamic Island",
-                        detail: "Start a Live Activity anytime to pin your design to the Lock Screen."
+                        title: String(localized: "Dynamic Island"),
+                        detail: String(localized: "Start a Live Activity anytime to pin your design to the Lock Screen.")
                     )
                 }
 
@@ -578,19 +579,25 @@ private struct HelpSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Home Screen widget") {
-                    labeledStep(number: 1, text: "Customize your design in this app, then tap Save.")
-                    labeledStep(number: 2, text: "On your Home Screen, touch and hold an empty area until the apps jiggle.")
-                    labeledStep(number: 3, text: "Tap Edit in the corner, then Add Widget.")
-                    labeledStep(number: 4, text: "Search for “Buggy Widget”, choose Small or Medium, and tap Add.")
+                Section {
+                    labeledStep(number: 1, text: String(localized: "Customize your design in this app, then tap Save."))
+                    labeledStep(number: 2, text: String(localized: "On your Home Screen, touch and hold an empty area until the apps jiggle."))
+                    labeledStep(number: 3, text: String(localized: "Tap Edit in the corner, then Add Widget."))
+                    labeledStep(number: 4, text: String(localized: "Search for “Buggy Widget”, choose Small or Medium, and tap Add."))
+                } header: {
+                    Text("Home Screen widget")
                 }
 
-                Section("Live Activity") {
+                Section {
                     Text("Use Start Live Activity to show your design on Dynamic Island and the Lock Screen. Update anytime after you change progress or text.")
+                } header: {
+                    Text("Live Activity")
                 }
 
-                Section("Privacy") {
+                Section {
                     Text("Your photos and widget settings stay on this device in a private App Group container. Nothing is uploaded.")
+                } header: {
+                    Text("Privacy")
                 }
             }
             .navigationTitle("How to Use")
@@ -614,7 +621,7 @@ private struct HelpSheet: View {
                 .background(Circle().fill(Color.accentColor.opacity(0.15)))
                 .foregroundStyle(.tint)
         }
-        .accessibilityLabel("Step \(number). \(text)")
+        .accessibilityLabel(L10n.accessibilityStep(number: number, text: text))
     }
 }
 

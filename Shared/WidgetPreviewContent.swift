@@ -66,8 +66,8 @@ struct WidgetPreviewContent: View {
             if showsProgress {
                 ProgressView(value: configuration.clampedProgress)
                     .tint(textColor.opacity(0.9))
-                    .accessibilityLabel("Progress")
-                    .accessibilityValue("\(Int(configuration.clampedProgress * 100)) percent")
+                    .accessibilityLabel(Text("Progress"))
+                    .accessibilityValue(L10n.accessibilityPercent(configuration.clampedProgress))
             }
 
             if showsTimestamp {
@@ -75,7 +75,7 @@ struct WidgetPreviewContent: View {
                 Text(Date(), style: .time)
                     .font(fontOption.font(size: 11, weight: .medium))
                     .foregroundStyle(textColor.opacity(0.7))
-                    .accessibilityLabel("Current time")
+                    .accessibilityLabel(Text("Current time"))
             }
         }
     }
@@ -101,7 +101,7 @@ struct WidgetPreviewContent: View {
             parts.append(configuration.displaySubtitle)
         }
         if showsProgress {
-            parts.append("\(Int(configuration.clampedProgress * 100)) percent")
+            parts.append(L10n.accessibilityPercent(configuration.clampedProgress))
         }
         return parts.joined(separator: ", ")
     }

@@ -20,15 +20,15 @@ struct WidgetUtilityLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     Text(context.state.emoji)
                         .font(.title2)
-                        .accessibilityLabel("Status emoji")
+                        .accessibilityLabel(Text("Status emoji"))
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("\(Int(context.state.progress * 100))%")
+                    Text(LocaleFormatting.percent(context.state.progress))
                         .font(.caption.weight(.semibold))
                         .monospacedDigit()
                         .foregroundStyle(accent)
-                        .accessibilityLabel("\(Int(context.state.progress * 100)) percent")
+                        .accessibilityLabel(L10n.accessibilityPercent(context.state.progress))
                 }
 
                 DynamicIslandExpandedRegion(.center) {
@@ -54,7 +54,7 @@ struct WidgetUtilityLiveActivity: Widget {
             } compactLeading: {
                 Text(context.state.emoji)
             } compactTrailing: {
-                Text("\(Int(context.state.progress * 100))%")
+                Text(LocaleFormatting.percent(context.state.progress))
                     .font(.caption2.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(accent)
@@ -98,11 +98,11 @@ struct WidgetUtilityLiveActivity: Widget {
 
             Spacer(minLength: 0)
 
-            Text("\(Int(context.state.progress * 100))%")
+            Text(LocaleFormatting.percent(context.state.progress))
                 .font(.title3.weight(.bold))
                 .monospacedDigit()
                 .foregroundStyle(textColor)
-                .accessibilityLabel("\(Int(context.state.progress * 100)) percent")
+                .accessibilityLabel(L10n.accessibilityPercent(context.state.progress))
         }
         .padding()
         .background {
@@ -141,9 +141,9 @@ struct WidgetUtilityLiveActivity: Widget {
     WidgetUtilityLiveActivity()
 } contentStates: {
     WidgetUtilityAttributes.ContentState(
-        title: "My Widget",
-        status: "Created with Buggy Widget",
-        detail: "Updated 8:30 PM",
+        title: L10n.defaultWidgetTitle,
+        status: L10n.defaultWidgetSubtitle,
+        detail: LocaleFormatting.updatedAt(),
         progress: 0.65,
         emoji: "🐛",
         accentColorHex: SharedWidgetConfiguration.default.backgroundColorHex,
