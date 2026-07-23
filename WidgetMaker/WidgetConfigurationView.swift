@@ -11,8 +11,8 @@ struct WidgetConfigurationView: View {
     @State private var portfolio = SharedDataStore.loadPortfolio()
     @State private var designName = ""
     @State private var configuration = SharedWidgetConfiguration.default
-    @State private var backgroundColor = Color(hex: SharedWidgetConfiguration.default.backgroundColorHex) ?? .green
-    @State private var textColor = Color(hex: SharedWidgetConfiguration.default.textColorHex) ?? .black
+    @State private var backgroundColor = Color(hex: SharedWidgetConfiguration.default.backgroundColorHex) ?? .indigo
+    @State private var textColor = Color(hex: SharedWidgetConfiguration.default.textColorHex) ?? .white
     @State private var selectedFont: WidgetFontOption = .system
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var previewImage: UIImage?
@@ -30,6 +30,9 @@ struct WidgetConfigurationView: View {
     @AppStorage("hasSeenAssignDesignTip") private var hasSeenAssignDesignTip = false
     @State private var showOnboarding = false
     @State private var showAssignDesignTip = false
+
+    private static let backgroundPresets = ["#5E5CE6", "#0A84FF", "#34C759", "#FF9F0A", "#FF375F", "#1C1C1E"]
+    private static let textPresets = ["#FFFFFF", "#000000"]
 
     private var draftConfiguration: SharedWidgetConfiguration {
         var draft = configuration
@@ -58,17 +61,32 @@ struct WidgetConfigurationView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                portfolioSection
-                previewSection
-                contentVisibilitySection
-                textSection
-                styleSection
-                imageSection
-                progressSection
-                liveActivitySection
-                homeScreenSection
+            ScrollView {
+                VStack(spacing: 18) {
+                    heroCard
+                    portfolioCardSection
+                    contentCard
+                    if showsText {
+                        textCard
+                            .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    }
+                    styleCard
+                    imageCard
+                    if configuration.showsProgress {
+                        progressCard
+                            .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    }
+                    liveActivityCard
+                    helpCard
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 24)
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showsText)
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: configuration.showsProgress)
             }
+            .background(Color(.systemGroupedBackground))
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Buggy Widget")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -80,28 +98,9 @@ struct WidgetConfigurationView: View {
                     }
                     .accessibilityLabel(Text("How to use"))
                 }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        saveConfiguration()
-                    } label: {
-                        if isSaving {
-                            ProgressView()
-                        } else {
-                            Text("Save")
-                                .fontWeight(.semibold)
-                        }
-                    }
-                    .disabled(isSaving || isImportingPhoto || !hasUnsavedChanges)
-                    .accessibilityHint(Text("Saves your design and refreshes Home Screen widgets"))
-                }
             }
             .safeAreaInset(edge: .bottom) {
-                if showSavedBanner {
-                    savedBanner
-                } else if showAssignDesignTip {
-                    assignDesignTipBanner
-                }
+                bottomBar
             }
             .sheet(isPresented: $showHelp) {
                 HelpSheet()
@@ -193,122 +192,200 @@ struct WidgetConfigurationView: View {
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Hero
 
-    private var portfolioSection: some View {
-        Section {
+    private var heroCard: some View {
+        VStack(spacing: 16) {
+            WidgetPreviewContent(
+                configuration: draftConfiguration,
+                backgroundImage: previewImage,
+                isCompact: true
+            )
+            .frame(width: 170, height: 170)
+            .shadow(color: backgroundColor.opacity(0.35), radius: 18, y: 10)
+
+            VStack(spacing: 8) {
+                TextField("Design Name", text: $designName)
+                    .textInputAutocapitalization(.words)
+                    .multilineTextAlignment(.center)
+                    .font(.headline)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 18)
+                    .background(Capsule().fill(Color(.secondarySystemGroupedBackground).opacity(0.9)))
+                    .frame(maxWidth: 250)
+                    .accessibilityLabel(Text("Design Name"))
+
+                if hasUnsavedChanges {
+                    Text("Unsaved")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.orange.opacity(0.18)))
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel(Text("Unsaved changes"))
+                        .transition(.opacity)
+                } else {
+                    Text("Changes appear here instantly. Tap Save to update your Home Screen widget.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [backgroundColor.opacity(0.30), backgroundColor.opacity(0.06)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        )
+        .animation(.easeInOut(duration: 0.2), value: hasUnsavedChanges)
+    }
+
+    // MARK: - Portfolio
+
+    private var portfolioCardSection: some View {
+        sectionCard {
+            HStack(spacing: 10) {
+                IconBadge(systemName: "square.stack.3d.up.fill")
+                Text("Portfolio")
+                    .font(.subheadline.weight(.semibold))
+                Spacer(minLength: 0)
+                Text(verbatim: "\(portfolio.designs.count)/\(WidgetPortfolio.maxDesigns)")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+
+                Menu {
+                    Button {
+                        createDesign(copying: true)
+                    } label: {
+                        Label("Duplicate", systemImage: "doc.on.doc")
+                    }
+                    .disabled(portfolio.designs.count >= WidgetPortfolio.maxDesigns)
+
+                    if portfolio.designs.count > 1 {
+                        Button(role: .destructive) {
+                            requestDeleteDesign()
+                        } label: {
+                            Label("Delete Design", systemImage: "trash")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.body)
+                        .foregroundStyle(.tint)
+                }
+                .accessibilityLabel(Text("Design actions"))
+            }
+
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: 14) {
                     ForEach(portfolio.designs) { design in
                         portfolioCard(design)
                     }
+                    newDesignCard
                 }
-                .padding(.vertical, 4)
+                .padding(6)
             }
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            .padding(-6)
 
-            TextField("Design Name", text: $designName)
-                .textInputAutocapitalization(.words)
-                .accessibilityLabel(Text("Design Name"))
-
-            HStack(spacing: 12) {
-                Button {
-                    createDesign(copying: false)
-                } label: {
-                    Label("New Design", systemImage: "plus.square.on.square")
-                }
-                .disabled(portfolio.designs.count >= WidgetPortfolio.maxDesigns)
-
-                Button {
-                    createDesign(copying: true)
-                } label: {
-                    Label("Duplicate", systemImage: "doc.on.doc")
-                }
-                .disabled(portfolio.designs.count >= WidgetPortfolio.maxDesigns)
-            }
-
-            if portfolio.designs.count > 1 {
-                Button("Delete Design", role: .destructive) {
-                    requestDeleteDesign()
-                }
-            }
-        } header: {
-            Text("Portfolio")
-        } footer: {
             Text("Save multiple looks, then pick one when you add a Home Screen widget.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
     private func portfolioCard(_ design: WidgetDesign) -> some View {
         let isSelected = design.id == portfolio.selectedDesignID
-        let thumb = design.id == portfolio.selectedDesignID ? previewImage : loadThumb(for: design)
+        let thumb = isSelected ? previewImage : loadThumb(for: design)
+        let miniature = WidgetPreviewContent(
+            configuration: isSelected ? draftConfiguration : design.configuration,
+            backgroundImage: thumb,
+            isCompact: true
+        )
+        // Render at full widget size and scale down for a faithful miniature.
+        .frame(width: 155, height: 155)
+        .scaleEffect(92 / 155)
+        .frame(width: 92, height: 92)
 
         return Button {
             selectDesign(design.id)
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                WidgetPreviewContent(
-                    configuration: design.id == portfolio.selectedDesignID ? draftConfiguration : design.configuration,
-                    backgroundImage: thumb,
-                    isCompact: true
-                )
-                .frame(width: 108, height: 108)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
-                }
+            VStack(spacing: 7) {
+                miniature
+                    .overlay {
+                        if isSelected {
+                            // Ring sits outside the thumb with a gap, so it reads on any color.
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(Color.accentColor, lineWidth: 2.5)
+                                .padding(-5)
+                        }
+                    }
 
-                Text(design.id == portfolio.selectedDesignID ? (designName.isEmpty ? design.displayName : designName) : design.displayName)
-                    .font(.caption.weight(isSelected ? .semibold : .regular))
+                Text(isSelected ? (designName.isEmpty ? design.displayName : designName) : design.displayName)
+                    .font(.caption2.weight(isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     .lineLimit(1)
-                    .frame(width: 108, alignment: .leading)
+                    .frame(width: 92)
             }
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            if isSelected {
+                Button {
+                    createDesign(copying: true)
+                } label: {
+                    Label("Duplicate", systemImage: "doc.on.doc")
+                }
+                if portfolio.designs.count > 1 {
+                    Button(role: .destructive) {
+                        requestDeleteDesign()
+                    } label: {
+                        Label("Delete Design", systemImage: "trash")
+                    }
+                }
+            }
+        }
         .accessibilityLabel(Text(design.displayName))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private var previewSection: some View {
-        Section {
-            HStack(spacing: 16) {
-                WidgetPreviewContent(
-                    configuration: draftConfiguration,
-                    backgroundImage: previewImage,
-                    isCompact: true
-                )
-                .frame(width: 155, height: 155)
-                .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Live Preview")
-                            .font(.headline)
-                        if hasUnsavedChanges {
-                            Text("Unsaved")
-                                .font(.caption2.weight(.semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(Color.orange.opacity(0.18)))
-                                .foregroundStyle(.orange)
-                                .accessibilityLabel(Text("Unsaved changes"))
-                        }
+    private var newDesignCard: some View {
+        Button {
+            createDesign(copying: false)
+        } label: {
+            VStack(spacing: 7) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 92, height: 92)
+                    .overlay {
+                        Image(systemName: "plus")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.tint)
                     }
-                    Text(hasUnsavedChanges
-                         ? String(localized: "You have unsaved edits. Tap Save to update Home Screen widgets.")
-                         : String(localized: "Changes appear here instantly. Tap Save to update your Home Screen widget."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text("New Design")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(width: 92)
             }
-            .padding(.vertical, 4)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
         }
+        .buttonStyle(.plain)
+        .disabled(portfolio.designs.count >= WidgetPortfolio.maxDesigns)
+        .opacity(portfolio.designs.count >= WidgetPortfolio.maxDesigns ? 0.4 : 1)
     }
+
+    // MARK: - Content
 
     private var showsText: Bool {
         configuration.showsTitle || configuration.showsSubtitle || configuration.showsEmoji
@@ -325,183 +402,437 @@ struct WidgetConfigurationView: View {
         )
     }
 
-    private var contentVisibilitySection: some View {
-        Section {
-            Toggle("Show Text", isOn: showsTextBinding)
-            Toggle("Show Progress", isOn: $configuration.showsProgress)
-            Toggle("Show Time", isOn: $configuration.showsTimestamp)
-        } header: {
-            Text("Content")
-        } footer: {
+    private var contentCard: some View {
+        sectionCard {
+            cardHeader(Text("Content"), systemImage: "switch.2")
+
+            toggleRow(Text("Show Text"), icon: "textformat", isOn: showsTextBinding)
+            Divider()
+            toggleRow(Text("Show Progress"), icon: "chart.bar.fill", isOn: $configuration.showsProgress)
+            Divider()
+            toggleRow(Text("Show Time"), icon: "clock.fill", isOn: $configuration.showsTimestamp)
+
             Text("Turn off Show Text for a photo- or color-only widget with nothing overlaid on top.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
-    @ViewBuilder
-    private var textSection: some View {
-        if showsText {
-            Section {
+    private func toggleRow(_ title: Text, icon: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tint)
+                    .frame(width: 22)
+                title
+            }
+        }
+    }
+
+    // MARK: - Text
+
+    private var textCard: some View {
+        sectionCard {
+            cardHeader(Text("Text"), systemImage: "character.cursor.ibeam")
+
+            fieldRow {
                 TextField("Title", text: $configuration.title)
                     .textInputAutocapitalization(.sentences)
                     .accessibilityLabel(Text("Widget title"))
+            }
 
+            fieldRow {
                 TextField("Subtitle", text: $configuration.subtitle)
                     .textInputAutocapitalization(.sentences)
                     .accessibilityLabel(Text("Widget subtitle"))
+            }
 
+            fieldRow {
                 TextField("Emoji", text: $configuration.emoji)
                     .accessibilityLabel(Text("Widget emoji"))
                     .accessibilityHint(Text("Paste or type an emoji"))
-            } header: {
-                Text("Text")
-            } footer: {
-                Text(L10n.titleSubtitleLimits(
-                    titleLimit: SharedWidgetConfiguration.titleLimit,
-                    subtitleLimit: SharedWidgetConfiguration.subtitleLimit
-                ))
             }
+
+            Text(L10n.titleSubtitleLimits(
+                titleLimit: SharedWidgetConfiguration.titleLimit,
+                subtitleLimit: SharedWidgetConfiguration.subtitleLimit
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
     }
 
-    private var styleSection: some View {
-        Section("Style") {
-            ColorPicker("Background", selection: $backgroundColor, supportsOpacity: false)
+    private func fieldRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(.tertiarySystemFill))
+            )
+    }
+
+    // MARK: - Style
+
+    private var styleCard: some View {
+        sectionCard {
+            cardHeader(Text("Style"), systemImage: "paintpalette.fill")
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Background")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+
+                HStack(spacing: 12) {
+                    ForEach(Self.backgroundPresets, id: \.self) { hex in
+                        colorSwatch(hex: hex, selection: $backgroundColor)
+                    }
+                    ColorPicker("Background", selection: $backgroundColor, supportsOpacity: false)
+                        .labelsHidden()
+                }
+            }
 
             if showsText || configuration.showsProgress || configuration.showsTimestamp {
-                ColorPicker("Text", selection: $textColor, supportsOpacity: false)
+                Divider()
 
-                Picker("Font", selection: $selectedFont) {
-                    ForEach(WidgetFontOption.allCases) { option in
-                        Text(option.localizedName).tag(option)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Text")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+
+                    HStack(spacing: 12) {
+                        ForEach(Self.textPresets, id: \.self) { hex in
+                            colorSwatch(hex: hex, selection: $textColor)
+                        }
+                        ColorPicker("Text", selection: $textColor, supportsOpacity: false)
+                            .labelsHidden()
                     }
                 }
-                .pickerStyle(.segmented)
-                .accessibilityLabel(Text("Font style"))
 
-                if showsText {
-                    Text("The quick brown fox")
-                        .font(selectedFont.font(size: 17))
-                        .foregroundStyle(textColor)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityLabel(Text("Font preview"))
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Font")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+
+                    Picker("Font", selection: $selectedFont) {
+                        ForEach(WidgetFontOption.allCases) { option in
+                            Text(option.localizedName).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel(Text("Font style"))
+
+                    if showsText {
+                        Text("The quick brown fox")
+                            .font(selectedFont.font(size: 17, weight: .medium))
+                            .foregroundStyle(textColor)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                backgroundColor.adjustedBrightness(0.10),
+                                                backgroundColor.adjustedBrightness(-0.08)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            )
+                            .accessibilityLabel(Text("Font preview"))
+                    }
                 }
             }
         }
     }
 
-    private var imageSection: some View {
-        Section {
+    private func colorSwatch(hex: String, selection: Binding<Color>) -> some View {
+        let swatchColor = Color(hex: hex) ?? .gray
+        let isSelected = selection.wrappedValue.toHex().caseInsensitiveCompare(hex) == .orderedSame
+        let lightSwatch = Self.isLightColor(hex: hex)
+
+        return Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                selection.wrappedValue = swatchColor
+            }
+        } label: {
+            Circle()
+                .fill(swatchColor)
+                .frame(width: 33, height: 33)
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
+                .overlay {
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(lightSwatch ? Color.black : Color.white)
+                            .shadow(color: .black.opacity(lightSwatch ? 0 : 0.45), radius: 1.5)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: hex))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private static func isLightColor(hex: String) -> Bool {
+        let sanitized = hex.replacingOccurrences(of: "#", with: "")
+        guard sanitized.count == 6, let value = UInt64(sanitized, radix: 16) else { return false }
+        let red = Double((value & 0xFF0000) >> 16) / 255
+        let green = Double((value & 0x00FF00) >> 8) / 255
+        let blue = Double(value & 0x0000FF) / 255
+        return (0.299 * red + 0.587 * green + 0.114 * blue) > 0.65
+    }
+
+    // MARK: - Background image
+
+    private var imageCard: some View {
+        sectionCard {
+            cardHeader(Text("Background Image"), systemImage: "photo.fill")
+
             if let previewImage {
                 Image(uiImage: previewImage)
                     .resizable()
                     .scaledToFill()
                     .frame(maxWidth: .infinity)
-                    .frame(height: 160)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .frame(height: 150)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .accessibilityLabel(Text("Selected background image"))
-            }
 
-            PhotosPicker(
-                selection: $selectedPhotoItem,
-                matching: .images,
-                photoLibrary: .shared()
-            ) {
-                HStack {
-                    Label {
-                        Text(hasBackgroundImageInDraft ? "Replace Image" : "Choose Image")
-                    } icon: {
-                        Image(systemName: "photo.on.rectangle")
+                HStack(spacing: 10) {
+                    PhotosPicker(
+                        selection: $selectedPhotoItem,
+                        matching: .images,
+                        photoLibrary: .shared()
+                    ) {
+                        HStack(spacing: 6) {
+                            if isImportingPhoto {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "photo.on.rectangle")
+                            }
+                            Text("Replace Image")
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    Spacer()
-                    if isImportingPhoto {
-                        ProgressView()
+                    .buttonStyle(.bordered)
+                    .disabled(isImportingPhoto)
+
+                    Button(role: .destructive) {
+                        removeBackgroundImage()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                            Text("Remove Image")
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                }
-            }
-            .disabled(isImportingPhoto)
-
-            if hasBackgroundImageInDraft {
-                Button("Remove Image", role: .destructive) {
-                    removeBackgroundImage()
-                }
-            }
-        } header: {
-            Text("Background Image")
-        } footer: {
-            Text("Photos stay on your device. Tap Save to apply image changes to your Home Screen widget.")
-        }
-    }
-
-    @ViewBuilder
-    private var progressSection: some View {
-        if configuration.showsProgress {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Progress")
-                        Spacer()
-                        Text(LocaleFormatting.percent(configuration.progress))
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                    Slider(value: $configuration.progress, in: 0...1, step: 0.01)
-                        .accessibilityLabel(Text("Widget progress"))
-                        .accessibilityValue(L10n.accessibilityPercent(configuration.progress))
-                }
-            } header: {
-                Text("Progress")
-            }
-        }
-    }
-
-    private var liveActivitySection: some View {
-        Section {
-            Text(isLiveActivityActive
-                 ? String(localized: "Dynamic Island and Lock Screen are showing your widget.")
-                 : String(localized: "Mirror your design on Dynamic Island and the Lock Screen."))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            if isLiveActivityActive {
-                Button("Update Live Activity") {
-                    Task { await updateLiveActivity() }
-                }
-                Button("End Live Activity", role: .destructive) {
-                    Task { await endLiveActivity() }
+                    .buttonStyle(.bordered)
                 }
             } else {
-                Button("Start Live Activity") {
-                    Task { await startLiveActivity() }
+                PhotosPicker(
+                    selection: $selectedPhotoItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    VStack(spacing: 8) {
+                        if isImportingPhoto {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "photo.badge.plus")
+                                .font(.title2)
+                                .foregroundStyle(.tint)
+                        }
+                        Text("Choose Image")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.tint)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 22)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                            .foregroundStyle(.tertiary)
+                    )
                 }
+                .disabled(isImportingPhoto)
             }
-        } header: {
-            Text("Live Activity")
+
+            Text("Photos stay on your device. Tap Save to apply image changes to your Home Screen widget.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
-    private var homeScreenSection: some View {
-        Section {
+    // MARK: - Progress
+
+    private var progressCard: some View {
+        sectionCard {
+            cardHeader(Text("Progress"), systemImage: "slider.horizontal.3")
+
+            HStack {
+                Slider(value: $configuration.progress, in: 0...1, step: 0.01)
+                    .accessibilityLabel(Text("Widget progress"))
+                    .accessibilityValue(L10n.accessibilityPercent(configuration.progress))
+
+                Text(LocaleFormatting.percent(configuration.progress))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .frame(width: 52, alignment: .trailing)
+            }
+        }
+    }
+
+    // MARK: - Live Activity
+
+    private var liveActivityCard: some View {
+        sectionCard {
+            cardHeader(Text("Live Activity"), systemImage: "bolt.fill")
+
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(isLiveActivityActive ? Color.green : Color(.systemGray3))
+                    .frame(width: 8, height: 8)
+                Text(isLiveActivityActive
+                     ? String(localized: "Dynamic Island and Lock Screen are showing your widget.")
+                     : String(localized: "Mirror your design on Dynamic Island and the Lock Screen."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if isLiveActivityActive {
+                HStack(spacing: 10) {
+                    Button {
+                        Task { await updateLiveActivity() }
+                    } label: {
+                        Text("Update Live Activity")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button(role: .destructive) {
+                        Task { await endLiveActivity() }
+                    } label: {
+                        Text("End Live Activity")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            } else {
+                Button {
+                    Task { await startLiveActivity() }
+                } label: {
+                    Text("Start Live Activity")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
+    // MARK: - Help
+
+    private var helpCard: some View {
+        sectionCard {
             Button {
                 showHelp = true
             } label: {
-                Label("How to add to Home Screen", systemImage: "plus.rectangle.on.rectangle")
+                HStack(spacing: 10) {
+                    IconBadge(systemName: "plus.rectangle.on.rectangle")
+                    Text("How to add to Home Screen")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.primary)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
             }
+            .buttonStyle(.plain)
+
+            Text("After saving, long-press a Home Screen widget and choose Edit Widget to pick a design from your portfolio.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Bottom bar
+
+    @ViewBuilder
+    private var bottomBar: some View {
+        Group {
+            if showSavedBanner {
+                savedBanner
+            } else if hasUnsavedChanges {
+                saveBar
+            } else if showAssignDesignTip {
+                assignDesignTipBanner
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: hasUnsavedChanges)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showSavedBanner)
+    }
+
+    private var saveBar: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Unsaved")
+                    .font(.subheadline.weight(.semibold))
+                Text("You have unsaved edits. Tap Save to update Home Screen widgets.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
 
             Button {
                 saveConfiguration()
             } label: {
-                Label("Save & Refresh Widgets", systemImage: "arrow.triangle.2.circlepath")
+                Group {
+                    if isSaving {
+                        ProgressView()
+                    } else {
+                        Text("Save")
+                            .fontWeight(.semibold)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 4)
             }
-            .disabled(isSaving || isImportingPhoto || !hasUnsavedChanges)
-        } footer: {
-            Text("After saving, long-press a Home Screen widget and choose Edit Widget to pick a design from your portfolio.")
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .disabled(isSaving || isImportingPhoto)
+            .accessibilityHint(Text("Saves your design and refreshes Home Screen widgets"))
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private var savedBanner: some View {
         VStack(spacing: 4) {
-            Text("Saved — Home Screen widgets refreshed")
-                .font(.subheadline.weight(.medium))
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text("Saved — Home Screen widgets refreshed")
+                    .font(.subheadline.weight(.medium))
+            }
             if !hasSeenAssignDesignTip {
                 Text("Tip: long-press a widget → Edit Widget to choose a design.")
                     .font(.caption)
@@ -512,7 +843,14 @@ struct WidgetConfigurationView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .accessibilityAddTraits(.updatesFrequently)
     }
@@ -523,7 +861,9 @@ struct WidgetConfigurationView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(.ultraThinMaterial)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .onTapGesture {
                 withAnimation {
@@ -533,6 +873,29 @@ struct WidgetConfigurationView: View {
             }
             .accessibilityAddTraits(.isButton)
             .accessibilityHint(Text("Dismiss tip"))
+    }
+
+    // MARK: - Card scaffolding
+
+    private func sectionCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    private func cardHeader(_ title: Text, systemImage: String) -> some View {
+        HStack(spacing: 10) {
+            IconBadge(systemName: systemImage)
+            title
+                .font(.subheadline.weight(.semibold))
+            Spacer(minLength: 0)
+        }
     }
 
     // MARK: - Portfolio actions
@@ -623,8 +986,8 @@ struct WidgetConfigurationView: View {
         let design = portfolio.selectedDesign
         designName = design.name
         configuration = design.configuration
-        backgroundColor = Color(hex: design.configuration.backgroundColorHex) ?? .green
-        textColor = Color(hex: design.configuration.textColorHex) ?? .black
+        backgroundColor = Color(hex: design.configuration.backgroundColorHex) ?? .indigo
+        textColor = Color(hex: design.configuration.textColorHex) ?? .white
         selectedFont = WidgetFontOption(rawValue: design.configuration.fontName) ?? .system
         if let fileName = design.configuration.backgroundImageFileName,
            let data = SharedImageStore.loadImageData(fileName: fileName),
@@ -831,6 +1194,24 @@ struct WidgetConfigurationView: View {
     }
 }
 
+// MARK: - Small components
+
+private struct IconBadge: View {
+    let systemName: String
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 26, height: 26)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.accentColor.gradient)
+            )
+            .accessibilityHidden(true)
+    }
+}
+
 private enum PendingNavigation: Equatable {
     case select(String)
     case create(copying: Bool)
@@ -852,7 +1233,12 @@ private struct OnboardingSheet: View {
                 Spacer(minLength: 8)
 
                 Text("🐛")
-                    .font(.system(size: 56))
+                    .font(.system(size: 52))
+                    .padding(22)
+                    .background(
+                        Circle()
+                            .fill(Color.accentColor.opacity(0.14))
+                    )
                     .frame(maxWidth: .infinity)
 
                 Text("Design once. See it everywhere.")
@@ -887,6 +1273,7 @@ private struct OnboardingSheet: View {
                         .padding(.vertical, 14)
                 }
                 .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.roundedRectangle(radius: 16))
             }
             .padding(24)
             .navigationBarTitleDisplayMode(.inline)
@@ -902,9 +1289,13 @@ private struct OnboardingSheet: View {
     private func onboardingRow(icon: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(.tint)
-                .frame(width: 28)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.accentColor.gradient)
+                )
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {

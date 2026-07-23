@@ -64,6 +64,28 @@ extension Color {
         #endif
     }
 
+    /// Returns the color with its brightness shifted by `delta` (-1...1).
+    /// Used to build subtle gradients from a single stored hex color.
+    func adjustedBrightness(_ delta: CGFloat) -> Color {
+        #if canImport(UIKit)
+        var hue: CGFloat = 0
+        var saturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard UIColor(self).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) else {
+            return self
+        }
+        return Color(
+            hue: hue,
+            saturation: saturation,
+            brightness: min(max(brightness + delta, 0), 1),
+            opacity: alpha
+        )
+        #else
+        return self
+        #endif
+    }
+
     private func hexString(red: CGFloat, green: CGFloat, blue: CGFloat) -> String {
         let r = Int((min(max(red, 0), 1) * 255).rounded())
         let g = Int((min(max(green, 0), 1) * 255).rounded())

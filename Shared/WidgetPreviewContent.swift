@@ -102,11 +102,23 @@ struct WidgetPreviewContent: View {
 
                 // Dim only when overlays need contrast; keep photo-only widgets clean.
                 if showsAnyForegroundContent {
-                    backgroundColor.opacity(0.35)
+                    LinearGradient(
+                        colors: [backgroundColor.opacity(0.15), backgroundColor.opacity(0.5)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
                 }
             }
         } else {
-            backgroundColor
+            // Subtle diagonal gradient derived from the single stored color.
+            LinearGradient(
+                colors: [
+                    backgroundColor.adjustedBrightness(0.10),
+                    backgroundColor.adjustedBrightness(-0.08)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         }
     }
 
