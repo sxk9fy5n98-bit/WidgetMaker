@@ -8,19 +8,17 @@ enum LiveActivityController {
     }
 
     @discardableResult
-    static func start(from configuration: SharedWidgetConfiguration) throws -> Activity<WidgetUtilityAttributes> {
+    static func start(from configuration: SharedWidgetConfiguration) async throws -> Activity<WidgetUtilityAttributes> {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             throw LiveActivityError.notEnabled
         }
 
         // End any existing utility activities so we always show the latest config.
         for activity in Activity<WidgetUtilityAttributes>.activities {
-            Task {
-                await activity.end(nil, dismissalPolicy: .immediate)
-            }
+            await activity.end(nil, dismissalPolicy: .immediate)
         }
 
-        let attributes = WidgetUtilityAttributes(title: configuration.title)
+        let attributes = WidgetUtilityAttributes(title: configuration.displayTitle)
         let state = contentState(from: configuration)
 
         return try Activity.request(
@@ -47,10 +45,10 @@ enum LiveActivityController {
 
     private static func contentState(from configuration: SharedWidgetConfiguration) -> WidgetUtilityAttributes.ContentState {
         WidgetUtilityAttributes.ContentState(
-            status: configuration.subtitle.isEmpty ? "Active" : configuration.subtitle,
+            status: configuration.displaySubtitle.isEmpty ? "Active" : configuration.displaySubtitle,
             detail: "Updated \(formattedNow())",
-            progress: 0.65,
-            emoji: configuration.emoji.isEmpty ? "🐛" : configuration.emoji
+            progress: configuration.clampedProgress,
+            emoji: configuration.displayEmoji
         )
     }
 
@@ -67,7 +65,7 @@ enum LiveActivityError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notEnabled:
-            return "Live Activities are disabled. Enable them in Settings."
+            return "Live Activities are turned off. Enable them in Settings → Buggy Widget → Live Activities."
         }
     }
 }

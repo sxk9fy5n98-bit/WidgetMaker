@@ -5,15 +5,20 @@ enum SharedDataStore {
         UserDefaults(suiteName: AppGroupConstants.suiteName)
     }
 
-    static func save(_ configuration: SharedWidgetConfiguration) {
+    @discardableResult
+    static func save(_ configuration: SharedWidgetConfiguration) -> Bool {
+        var sanitized = configuration
+        sanitized.sanitize()
+
         guard
             let defaults,
-            let data = try? JSONEncoder().encode(configuration)
+            let data = try? JSONEncoder().encode(sanitized)
         else {
-            return
+            return false
         }
 
         defaults.set(data, forKey: AppGroupConstants.widgetConfigurationKey)
+        return true
     }
 
     static func load() -> SharedWidgetConfiguration? {
@@ -24,6 +29,11 @@ enum SharedDataStore {
             return nil
         }
 
-        return try? JSONDecoder().decode(SharedWidgetConfiguration.self, from: data)
+        guard var configuration = try? JSONDecoder().decode(SharedWidgetConfiguration.self, from: data) else {
+            return nil
+        }
+
+        configuration.sanitize()
+        return configuration
     }
 }

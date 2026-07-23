@@ -2,8 +2,6 @@
 //  WidgetMakerExtension.swift
 //  WidgetMakerExtension
 //
-//  Created by Jose Ignacio Montivero on 12/7/2026.
-//
 
 import WidgetKit
 import SwiftUI
@@ -25,7 +23,9 @@ struct Provider: AppIntentTimelineProvider {
 
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
         let entry = makeEntry(configuration: configuration)
-        return Timeline(entries: [entry], policy: .atEnd)
+        // Refresh periodically so the clock stays reasonably current.
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date().addingTimeInterval(900)
+        return Timeline(entries: [entry], policy: .after(nextUpdate))
     }
 
     private func makeEntry(configuration: ConfigurationAppIntent) -> SimpleEntry {
@@ -60,64 +60,19 @@ struct SimpleEntry: TimelineEntry {
 }
 
 struct WidgetMakerExtensionEntryView: View {
+    @Environment(\.widgetFamily) private var family
     var entry: Provider.Entry
 
-    private var config: SharedWidgetConfiguration {
-        entry.widgetConfiguration
-    }
-
-    private var fontOption: WidgetFontOption {
-        WidgetFontOption.resolve(config.fontName)
-    }
-
-    private var backgroundColor: Color {
-        Color(hex: config.backgroundColorHex) ?? Color(hex: SharedWidgetConfiguration.default.backgroundColorHex) ?? .green
-    }
-
-    private var textColor: Color {
-        Color(hex: config.textColorHex) ?? .black
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(config.emoji)
-                .font(.system(size: 34))
-
-            Text(config.title)
-                .font(fontOption.font(size: 17, weight: .semibold))
-                .foregroundStyle(textColor)
-                .lineLimit(2)
-
-            Text(config.subtitle)
-                .font(fontOption.font(size: 13))
-                .foregroundStyle(textColor.opacity(0.85))
-                .lineLimit(2)
-
-            Spacer(minLength: 0)
-
-            Text(entry.date, style: .time)
-                .font(fontOption.font(size: 11, weight: .medium))
-                .foregroundStyle(textColor.opacity(0.7))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding()
+        WidgetPreviewContent(
+            configuration: entry.widgetConfiguration,
+            backgroundImage: entry.backgroundImage,
+            showsTimestamp: true,
+            isCompact: family == .systemSmall,
+            clipsToWidgetShape: false
+        )
         .containerBackground(for: .widget) {
-            widgetBackground
-        }
-    }
-
-    @ViewBuilder
-    private var widgetBackground: some View {
-        if let backgroundImage = entry.backgroundImage {
-            ZStack {
-                Image(uiImage: backgroundImage)
-                    .resizable()
-                    .scaledToFill()
-
-                backgroundColor.opacity(0.35)
-            }
-        } else {
-            backgroundColor
+            Color.clear
         }
     }
 }
@@ -130,8 +85,9 @@ struct WidgetMakerExtension: Widget {
             WidgetMakerExtensionEntryView(entry: entry)
         }
         .configurationDisplayName("Buggy Widget")
-        .description("Shows your customized title, colors, font, and image.")
+        .description("Your custom title, colors, font, and background on the Home Screen.")
         .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
     }
 }
 

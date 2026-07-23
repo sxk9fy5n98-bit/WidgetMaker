@@ -16,12 +16,14 @@ struct WidgetUtilityLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     Text(context.state.emoji)
                         .font(.title2)
+                        .accessibilityLabel("Status emoji")
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
                     Text("\(Int(context.state.progress * 100))%")
                         .font(.caption.weight(.semibold))
                         .monospacedDigit()
+                        .accessibilityLabel("\(Int(context.state.progress * 100)) percent")
                 }
 
                 DynamicIslandExpandedRegion(.center) {
@@ -37,7 +39,7 @@ struct WidgetUtilityLiveActivity: Widget {
                             .lineLimit(1)
 
                         ProgressView(value: context.state.progress)
-                            .tint(.green)
+                            .tint(Color(hex: SharedWidgetConfiguration.default.backgroundColorHex) ?? .green)
 
                         Text(context.state.detail)
                             .font(.caption2)
@@ -53,6 +55,7 @@ struct WidgetUtilityLiveActivity: Widget {
             } minimal: {
                 Text(context.state.emoji)
             }
+            .widgetURL(URL(string: "buggywidget://editor"))
         }
     }
 
@@ -61,17 +64,20 @@ struct WidgetUtilityLiveActivity: Widget {
         HStack(spacing: 12) {
             Text(context.state.emoji)
                 .font(.largeTitle)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(context.attributes.title)
                     .font(.headline)
+                    .lineLimit(1)
 
                 Text(context.state.status)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
 
                 ProgressView(value: context.state.progress)
-                    .tint(.green)
+                    .tint(Color(hex: SharedWidgetConfiguration.default.backgroundColorHex) ?? .green)
 
                 Text(context.state.detail)
                     .font(.caption2)
@@ -83,10 +89,12 @@ struct WidgetUtilityLiveActivity: Widget {
             Text("\(Int(context.state.progress * 100))%")
                 .font(.title3.weight(.bold))
                 .monospacedDigit()
+                .accessibilityLabel("\(Int(context.state.progress * 100)) percent")
         }
         .padding()
         .activityBackgroundTint(Color.black.opacity(0.35))
         .activitySystemActionForegroundColor(.white)
+        .widgetURL(URL(string: "buggywidget://editor"))
     }
 }
 
@@ -94,7 +102,7 @@ struct WidgetUtilityLiveActivity: Widget {
     WidgetUtilityLiveActivity()
 } contentStates: {
     WidgetUtilityAttributes.ContentState(
-        status: "Created with WidgetMaker",
+        status: "Created with Buggy Widget",
         detail: "Updated 8:30 PM",
         progress: 0.65,
         emoji: "🐛"

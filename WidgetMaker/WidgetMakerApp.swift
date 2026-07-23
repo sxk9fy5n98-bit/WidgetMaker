@@ -2,8 +2,6 @@
 //  WidgetMakerApp.swift
 //  WidgetMaker
 //
-//  Created by Jose Ignacio Montivero on 12/7/2026.
-//
 
 import SwiftUI
 
@@ -12,6 +10,10 @@ struct WidgetMakerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .tint(Color(red: 0.22, green: 0.62, blue: 0.30))
+                .onOpenURL { _ in
+                    // Deep links from Live Activity open the editor (already root).
+                }
         }
     }
 }

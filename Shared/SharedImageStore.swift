@@ -1,6 +1,13 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 enum SharedImageStore {
+    /// Widget memory budgets are tight — keep backgrounds reasonably small.
+    private static let maxPixelDimension: CGFloat = 1200
+    private static let jpegQuality: CGFloat = 0.82
+
     private static var containerURL: URL? {
         FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: AppGroupConstants.suiteName
@@ -27,9 +34,10 @@ enum SharedImageStore {
             withIntermediateDirectories: true
         )
 
+        let prepared = preparedImageData(from: data)
         let fileName = preferredFileName ?? "\(UUID().uuidString).jpg"
         let fileURL = imagesDirectoryURL.appendingPathComponent(fileName)
-        try data.write(to: fileURL, options: .atomic)
+        try prepared.write(to: fileURL, options: .atomic)
         return fileName
     }
 
@@ -50,8 +58,40 @@ enum SharedImageStore {
         guard let url = imageURL(for: fileName) else { return }
         try? FileManager.default.removeItem(at: url)
     }
+
+    private static func preparedImageData(from data: Data) -> Data {
+        #if canImport(UIKit)
+        guard let image = UIImage(data: data) else { return data }
+        let resized = resizedImage(image, maxDimension: maxPixelDimension)
+        return resized.jpegData(compressionQuality: jpegQuality) ?? data
+        #else
+        return data
+        #endif
+    }
+
+    #if canImport(UIKit)
+    private static func resizedImage(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
+        let size = image.size
+        let longest = max(size.width, size.height)
+        guard longest > maxDimension, longest > 0 else { return image }
+
+        let scale = maxDimension / longest
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+    #endif
 }
 
-enum SharedImageStoreError: Error {
+enum SharedImageStoreError: LocalizedError {
     case containerUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .containerUnavailable:
+            return "Shared storage is unavailable. Check App Group settings."
+        }
+    }
 }
