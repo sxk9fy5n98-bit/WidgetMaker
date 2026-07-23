@@ -14,6 +14,10 @@ struct WidgetConfigurationView: View {
     @State private var selectedFont: WidgetFontOption = .system
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var previewImage: UIImage?
+    /// Image bytes chosen in the editor but not yet written on Save.
+    @State private var pendingImageData: Data?
+    /// When true, Save will clear the persisted background image.
+    @State private var pendingRemoveImage = false
     @State private var isLiveActivityActive = LiveActivityController.isActivityInProgress
     @State private var isSaving = false
     @State private var isImportingPhoto = false
@@ -28,8 +32,17 @@ struct WidgetConfigurationView: View {
         draft.backgroundColorHex = backgroundColor.toHex()
         draft.textColorHex = textColor.toHex()
         draft.fontName = selectedFont.rawValue
+        if pendingRemoveImage {
+            draft.backgroundImageFileName = nil
+        }
         draft.sanitize()
         return draft
+    }
+
+    private var hasBackgroundImageInDraft: Bool {
+        if pendingRemoveImage { return false }
+        if pendingImageData != nil || previewImage != nil { return true }
+        return configuration.backgroundImageFileName != nil
     }
 
     var body: some View {
@@ -97,6 +110,9 @@ struct WidgetConfigurationView: View {
                     showOnboarding = true
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: DeepLink.openEditorNotification)) { _ in
+                openEditorFromDeepLink()
+            }
             .onChange(of: selectedPhotoItem) { _, newItem in
                 Task {
                     await importSelectedPhoto(newItem)
@@ -127,6 +143,7 @@ struct WidgetConfigurationView: View {
                     configuration: draftConfiguration,
                     backgroundImage: previewImage,
                     showsTimestamp: true,
+                    showsProgress: true,
                     isCompact: true
                 )
                 .frame(width: 155, height: 155)
@@ -208,7 +225,7 @@ struct WidgetConfigurationView: View {
             ) {
                 HStack {
                     Label(
-                        configuration.backgroundImageFileName == nil ? "Choose Image" : "Replace Image",
+                        hasBackgroundImageInDraft ? "Replace Image" : "Choose Image",
                         systemImage: "photo.on.rectangle"
                     )
                     Spacer()
@@ -219,7 +236,7 @@ struct WidgetConfigurationView: View {
             }
             .disabled(isImportingPhoto)
 
-            if configuration.backgroundImageFileName != nil {
+            if hasBackgroundImageInDraft {
                 Button("Remove Image", role: .destructive) {
                     removeBackgroundImage()
                 }
@@ -227,7 +244,7 @@ struct WidgetConfigurationView: View {
         } header: {
             Text("Background Image")
         } footer: {
-            Text("Photos are resized for widgets and stored only on your device.")
+            Text("Photos stay on your device. Tap Save to apply image changes to your Home Screen widget.")
         }
     }
 
@@ -242,7 +259,7 @@ struct WidgetConfigurationView: View {
                         .monospacedDigit()
                 }
                 Slider(value: $configuration.progress, in: 0...1, step: 0.01)
-                    .accessibilityLabel("Live Activity progress")
+                    .accessibilityLabel("Widget progress")
                     .accessibilityValue("\(Int(configuration.progress * 100)) percent")
             }
 
@@ -299,17 +316,30 @@ struct WidgetConfigurationView: View {
             .accessibilityAddTraits(.updatesFrequently)
     }
 
+    private func openEditorFromDeepLink() {
+        hasSeenOnboarding = true
+        showOnboarding = false
+        showHelp = false
+        isLiveActivityActive = LiveActivityController.isActivityInProgress
+        loadExistingConfiguration()
+    }
+
     private func loadExistingConfiguration() {
         guard let saved = SharedDataStore.load() else { return }
         configuration = saved
         backgroundColor = Color(hex: saved.backgroundColorHex) ?? .green
         textColor = Color(hex: saved.textColorHex) ?? .black
         selectedFont = WidgetFontOption(rawValue: saved.fontName) ?? .system
+        pendingImageData = nil
+        pendingRemoveImage = false
+        selectedPhotoItem = nil
 
         if let fileName = saved.backgroundImageFileName,
            let data = SharedImageStore.loadImageData(fileName: fileName),
            let image = UIImage(data: data) {
             previewImage = image
+        } else {
+            previewImage = nil
         }
     }
 
@@ -327,40 +357,63 @@ struct WidgetConfigurationView: View {
             return
         }
 
-        if let oldFileName = configuration.backgroundImageFileName {
-            SharedImageStore.deleteImage(fileName: oldFileName)
-        }
-
-        do {
-            let fileName = try SharedImageStore.saveImageData(data)
-            configuration.backgroundImageFileName = fileName
-            if let stored = SharedImageStore.loadImageData(fileName: fileName) {
-                previewImage = UIImage(data: stored)
-            } else {
-                previewImage = UIImage(data: data)
-            }
-        } catch {
-            alertMessage = AlertMessage(
-                title: "Couldn't Save Photo",
-                message: error.localizedDescription
-            )
-        }
+        // Keep the photo in memory until Save so quitting without Save leaves disk untouched.
+        pendingImageData = data
+        pendingRemoveImage = false
+        previewImage = UIImage(data: data)
     }
 
     private func removeBackgroundImage() {
-        if let fileName = configuration.backgroundImageFileName {
-            SharedImageStore.deleteImage(fileName: fileName)
-        }
-        configuration.backgroundImageFileName = nil
+        pendingImageData = nil
+        pendingRemoveImage = true
         previewImage = nil
         selectedPhotoItem = nil
+    }
+
+    private func commitPendingImageChanges(into draft: inout SharedWidgetConfiguration) -> Bool {
+        let previousFileName = SharedDataStore.load()?.backgroundImageFileName
+
+        if pendingRemoveImage {
+            if let previousFileName {
+                SharedImageStore.deleteImage(fileName: previousFileName)
+            }
+            draft.backgroundImageFileName = nil
+            pendingRemoveImage = false
+            pendingImageData = nil
+            return true
+        }
+
+        if let pendingImageData {
+            do {
+                let fileName = try SharedImageStore.saveImageData(pendingImageData)
+                if let previousFileName, previousFileName != fileName {
+                    SharedImageStore.deleteImage(fileName: previousFileName)
+                }
+                draft.backgroundImageFileName = fileName
+                if let stored = SharedImageStore.loadImageData(fileName: fileName) {
+                    previewImage = UIImage(data: stored)
+                }
+                self.pendingImageData = nil
+                return true
+            } catch {
+                alertMessage = AlertMessage(
+                    title: "Couldn't Save Photo",
+                    message: error.localizedDescription
+                )
+                return false
+            }
+        }
+
+        return true
     }
 
     private func saveConfiguration() {
         isSaving = true
         defer { isSaving = false }
 
-        let draft = draftConfiguration
+        var draft = draftConfiguration
+        guard commitPendingImageChanges(into: &draft) else { return }
+
         configuration = draft
 
         guard SharedDataStore.save(draft) else {
@@ -391,10 +444,22 @@ struct WidgetConfigurationView: View {
         }
     }
 
-    private func startLiveActivity() async {
-        let draft = draftConfiguration
+    private func persistDraftForLiveActivity() -> SharedWidgetConfiguration? {
+        var draft = draftConfiguration
+        guard commitPendingImageChanges(into: &draft) else { return nil }
         configuration = draft
-        _ = SharedDataStore.save(draft)
+        guard SharedDataStore.save(draft) else {
+            alertMessage = AlertMessage(
+                title: "Couldn't Save",
+                message: "Shared storage is unavailable. Make sure App Groups are enabled for this app."
+            )
+            return nil
+        }
+        return draft
+    }
+
+    private func startLiveActivity() async {
+        guard let draft = persistDraftForLiveActivity() else { return }
 
         do {
             _ = try await LiveActivityController.start(from: draft)
@@ -410,9 +475,7 @@ struct WidgetConfigurationView: View {
     }
 
     private func updateLiveActivity() async {
-        let draft = draftConfiguration
-        configuration = draft
-        _ = SharedDataStore.save(draft)
+        guard let draft = persistDraftForLiveActivity() else { return }
 
         await LiveActivityController.update(from: draft)
         isLiveActivityActive = LiveActivityController.isActivityInProgress

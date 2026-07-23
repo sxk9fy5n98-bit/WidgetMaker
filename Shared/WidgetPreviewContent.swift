@@ -6,6 +6,7 @@ struct WidgetPreviewContent: View {
     let configuration: SharedWidgetConfiguration
     var backgroundImage: UIImage?
     var showsTimestamp: Bool = true
+    var showsProgress: Bool = true
     var isCompact: Bool = true
     /// When false, skip corner clipping so WidgetKit can apply system chrome.
     var clipsToWidgetShape: Bool = true
@@ -62,11 +63,19 @@ struct WidgetPreviewContent: View {
 
             Spacer(minLength: 0)
 
+            if showsProgress {
+                ProgressView(value: configuration.clampedProgress)
+                    .tint(textColor.opacity(0.9))
+                    .accessibilityLabel("Progress")
+                    .accessibilityValue("\(Int(configuration.clampedProgress * 100)) percent")
+            }
+
             if showsTimestamp {
+                // WidgetKit auto-updates Text date styles without a timeline reload.
                 Text(Date(), style: .time)
                     .font(fontOption.font(size: 11, weight: .medium))
                     .foregroundStyle(textColor.opacity(0.7))
-                    .accessibilityLabel("Last updated time")
+                    .accessibilityLabel("Current time")
             }
         }
     }
@@ -90,6 +99,9 @@ struct WidgetPreviewContent: View {
         var parts = [configuration.displayTitle]
         if !configuration.displaySubtitle.isEmpty {
             parts.append(configuration.displaySubtitle)
+        }
+        if showsProgress {
+            parts.append("\(Int(configuration.clampedProgress * 100)) percent")
         }
         return parts.joined(separator: ", ")
     }

@@ -28,19 +28,46 @@ extension Color {
         var green: CGFloat = 0
         var blue: CGFloat = 0
         var alpha: CGFloat = 0
-        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        return String(format: "#%02X%02X%02X", Int(red * 255), Int(green * 255), Int(blue * 255))
+
+        if let converted = uiColor.cgColor.converted(
+            to: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+            intent: .defaultIntent,
+            options: nil
+        ) {
+            let srgb = UIColor(cgColor: converted)
+            if srgb.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+                return hexString(red: red, green: green, blue: blue)
+            }
+        }
+
+        if uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            return hexString(red: red, green: green, blue: blue)
+        }
+
+        // Fallback for grayscale / non-RGB colors.
+        var white: CGFloat = 0
+        if uiColor.getWhite(&white, alpha: &alpha) {
+            return hexString(red: white, green: white, blue: white)
+        }
+
+        return "#000000"
         #elseif canImport(AppKit)
         let nsColor = NSColor(self)
         guard let rgb = nsColor.usingColorSpace(.sRGB) else { return "#000000" }
-        return String(
-            format: "#%02X%02X%02X",
-            Int(rgb.redComponent * 255),
-            Int(rgb.greenComponent * 255),
-            Int(rgb.blueComponent * 255)
+        return hexString(
+            red: rgb.redComponent,
+            green: rgb.greenComponent,
+            blue: rgb.blueComponent
         )
         #else
         return "#000000"
         #endif
+    }
+
+    private func hexString(red: CGFloat, green: CGFloat, blue: CGFloat) -> String {
+        let r = Int((min(max(red, 0), 1) * 255).rounded())
+        let g = Int((min(max(green, 0), 1) * 255).rounded())
+        let b = Int((min(max(blue, 0), 1) * 255).rounded())
+        return String(format: "#%02X%02X%02X", r, g, b)
     }
 }

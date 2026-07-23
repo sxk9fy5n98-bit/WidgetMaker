@@ -7,36 +7,31 @@ import WidgetKit
 import SwiftUI
 import UIKit
 
-struct Provider: AppIntentTimelineProvider {
+struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
         SimpleEntry(
             date: Date(),
-            configuration: ConfigurationAppIntent(),
             widgetConfiguration: .default,
             backgroundImage: nil
         )
     }
 
-    func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
-        makeEntry(configuration: configuration)
+    func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> Void) {
+        completion(makeEntry())
     }
 
-    func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
-        let entry = makeEntry(configuration: configuration)
-        // Refresh periodically so the clock stays reasonably current.
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date().addingTimeInterval(900)
-        return Timeline(entries: [entry], policy: .after(nextUpdate))
+    func getTimeline(in context: Context, completion: @escaping (Timeline<SimpleEntry>) -> Void) {
+        // Config reloads via WidgetCenter after Save. Time text auto-updates via Text date style.
+        let timeline = Timeline(entries: [makeEntry()], policy: .never)
+        completion(timeline)
     }
 
-    private func makeEntry(configuration: ConfigurationAppIntent) -> SimpleEntry {
+    private func makeEntry() -> SimpleEntry {
         let widgetConfiguration = SharedDataStore.load() ?? .default
-        let backgroundImage = loadBackgroundImage(from: widgetConfiguration)
-
         return SimpleEntry(
             date: Date(),
-            configuration: configuration,
             widgetConfiguration: widgetConfiguration,
-            backgroundImage: backgroundImage
+            backgroundImage: loadBackgroundImage(from: widgetConfiguration)
         )
     }
 
@@ -54,7 +49,6 @@ struct Provider: AppIntentTimelineProvider {
 
 struct SimpleEntry: TimelineEntry {
     let date: Date
-    let configuration: ConfigurationAppIntent
     let widgetConfiguration: SharedWidgetConfiguration
     let backgroundImage: UIImage?
 }
@@ -68,6 +62,7 @@ struct WidgetMakerExtensionEntryView: View {
             configuration: entry.widgetConfiguration,
             backgroundImage: entry.backgroundImage,
             showsTimestamp: true,
+            showsProgress: true,
             isCompact: family == .systemSmall,
             clipsToWidgetShape: false
         )
@@ -81,11 +76,11 @@ struct WidgetMakerExtension: Widget {
     let kind: String = "WidgetMakerExtension"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
+        StaticConfiguration(kind: kind, provider: Provider()) { entry in
             WidgetMakerExtensionEntryView(entry: entry)
         }
         .configurationDisplayName("Buggy Widget")
-        .description("Your custom title, colors, font, and background on the Home Screen.")
+        .description("Your custom title, colors, font, progress, and background on the Home Screen.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
@@ -96,7 +91,6 @@ struct WidgetMakerExtension: Widget {
 } timeline: {
     SimpleEntry(
         date: .now,
-        configuration: ConfigurationAppIntent(),
         widgetConfiguration: .default,
         backgroundImage: nil
     )

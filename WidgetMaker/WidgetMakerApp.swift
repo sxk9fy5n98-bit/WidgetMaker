@@ -11,8 +11,9 @@ struct WidgetMakerApp: App {
         WindowGroup {
             ContentView()
                 .tint(Color(red: 0.22, green: 0.62, blue: 0.30))
-                .onOpenURL { _ in
-                    // Deep links from Live Activity open the editor (already root).
+                .onOpenURL { url in
+                    guard DeepLink.handles(url) else { return }
+                    NotificationCenter.default.post(name: DeepLink.openEditorNotification, object: url)
                 }
         }
     }

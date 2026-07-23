@@ -18,7 +18,7 @@ enum LiveActivityController {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
 
-        let attributes = WidgetUtilityAttributes(title: configuration.displayTitle)
+        let attributes = WidgetUtilityAttributes(widgetID: "buggy-widget")
         let state = contentState(from: configuration)
 
         return try Activity.request(
@@ -45,10 +45,15 @@ enum LiveActivityController {
 
     private static func contentState(from configuration: SharedWidgetConfiguration) -> WidgetUtilityAttributes.ContentState {
         WidgetUtilityAttributes.ContentState(
+            title: configuration.displayTitle,
             status: configuration.displaySubtitle.isEmpty ? "Active" : configuration.displaySubtitle,
             detail: "Updated \(formattedNow())",
             progress: configuration.clampedProgress,
-            emoji: configuration.displayEmoji
+            emoji: configuration.displayEmoji,
+            accentColorHex: configuration.backgroundColorHex,
+            textColorHex: configuration.textColorHex,
+            fontName: configuration.fontName,
+            backgroundImageFileName: configuration.backgroundImageFileName
         )
     }
 
