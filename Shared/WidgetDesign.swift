@@ -102,8 +102,11 @@ struct WidgetPortfolio: Codable, Equatable {
     }
 
     func design(id: String?) -> WidgetDesign? {
-        guard let id else { return designs.first }
-        return designs.first(where: { $0.id == id }) ?? designs.first
+        // Fall back to the selected design so an unresolved or stale widget
+        // configuration matches what WidgetDesignQuery.defaultResult() offers.
+        let fallback = designs.first(where: { $0.id == selectedDesignID }) ?? designs.first
+        guard let id else { return fallback }
+        return designs.first(where: { $0.id == id }) ?? fallback
     }
 
     mutating func sanitize() {

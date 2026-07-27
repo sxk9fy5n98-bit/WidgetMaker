@@ -1,5 +1,6 @@
 import Foundation
 #if canImport(UIKit)
+import ImageIO
 import UIKit
 #endif
 
@@ -54,6 +55,30 @@ enum SharedImageStore {
         return try? Data(contentsOf: url)
     }
 
+    #if canImport(UIKit)
+    /// Loads an image capped at `maxPixelDimension` without decoding the full bitmap.
+    /// Keeps widget memory bounded even for oversized files saved by older builds.
+    static func loadImage(fileName: String) -> UIImage? {
+        guard let url = imageURL(for: fileName) else { return nil }
+
+        let sourceOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions as CFDictionary) else {
+            return nil
+        }
+
+        let thumbnailOptions: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxPixelDimension)
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions as CFDictionary) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
+    }
+    #endif
+
     static func deleteImage(fileName: String) {
         guard let url = imageURL(for: fileName) else { return }
         try? FileManager.default.removeItem(at: url)
@@ -77,7 +102,11 @@ enum SharedImageStore {
 
         let scale = maxDimension / longest
         let newSize = CGSize(width: size.width * scale, height: size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: newSize)
+        // Render at 1x: the default renderer format uses the device's screen scale,
+        // which would triple the pixel dimensions and blow the widget memory budget.
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: newSize))
         }

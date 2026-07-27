@@ -1,10 +1,14 @@
 import SwiftUI
 import UIKit
+import WidgetKit
 
 /// Shared visual used by the in-app preview and the Home Screen widget.
 struct WidgetPreviewContent: View {
     let configuration: SharedWidgetConfiguration
     var backgroundImage: UIImage?
+    /// Timestamp shown when "Show Time" is on. The widget passes its timeline
+    /// entry date; the in-app preview defaults to now.
+    var date: Date = Date()
     var isCompact: Bool = true
     /// When false, skip corner clipping so WidgetKit can apply system chrome.
     var clipsToWidgetShape: Bool = true
@@ -83,8 +87,9 @@ struct WidgetPreviewContent: View {
             }
 
             if configuration.showsTimestamp {
-                // WidgetKit auto-updates Text date styles without a timeline reload.
-                Text(Date(), style: .time)
+                // Static render of the entry date; the provider emits per-minute
+                // entries so this stays current on the Home Screen.
+                Text(date, style: .time)
                     .font(fontOption.font(size: 11, weight: .medium))
                     .foregroundStyle(textColor.opacity(0.7))
                     .accessibilityLabel(Text("Current time"))
@@ -96,9 +101,7 @@ struct WidgetPreviewContent: View {
     private var widgetBackground: some View {
         if let backgroundImage {
             ZStack {
-                Image(uiImage: backgroundImage)
-                    .resizable()
-                    .scaledToFill()
+                backgroundImageView(backgroundImage)
 
                 // Dim only when overlays need contrast; keep photo-only widgets clean.
                 if showsAnyForegroundContent {
@@ -119,6 +122,20 @@ struct WidgetPreviewContent: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+        }
+    }
+
+    @ViewBuilder
+    private func backgroundImageView(_ uiImage: UIImage) -> some View {
+        let image = Image(uiImage: uiImage).resizable()
+        if #available(iOS 18.0, *) {
+            // Keep the photo full color when the Home Screen uses tinted widgets;
+            // the default treatment desaturates it into a flat accent block.
+            image
+                .widgetAccentedRenderingMode(.fullColor)
+                .scaledToFill()
+        } else {
+            image.scaledToFill()
         }
     }
 
