@@ -16,6 +16,9 @@ struct WidgetConfigurationView: View {
     @State private var selectedFont: WidgetFontOption = .system
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var previewImage: UIImage?
+    /// Pre-decoded portfolio thumbnails keyed by image filename, so `body`
+    /// never touches the disk while scrolling or typing.
+    @State private var thumbnailCache: [String: UIImage] = [:]
     @State private var pendingImageData: Data?
     @State private var pendingRemoveImage = false
     @State private var isLiveActivityActive = LiveActivityController.isActivityInProgress
@@ -305,7 +308,9 @@ struct WidgetConfigurationView: View {
 
     private func portfolioCard(_ design: WidgetDesign) -> some View {
         let isSelected = design.id == portfolio.selectedDesignID
-        let thumb = isSelected ? previewImage : loadThumb(for: design)
+        let thumb = isSelected
+            ? previewImage
+            : design.configuration.backgroundImageFileName.flatMap { thumbnailCache[$0] }
         let miniature = WidgetPreviewContent(
             configuration: isSelected ? draftConfiguration : design.configuration,
             backgroundImage: thumb,
@@ -966,6 +971,7 @@ struct WidgetConfigurationView: View {
         }
         applySelectedDesignToEditor()
         clearPendingImageState()
+        refreshThumbnails()
         _ = SharedDataStore.savePortfolio(portfolio)
         WidgetCenter.shared.reloadAllTimelines()
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -989,23 +995,27 @@ struct WidgetConfigurationView: View {
         backgroundColor = Color(hex: design.configuration.backgroundColorHex) ?? .indigo
         textColor = Color(hex: design.configuration.textColorHex) ?? .white
         selectedFont = WidgetFontOption(rawValue: design.configuration.fontName) ?? .system
-        if let fileName = design.configuration.backgroundImageFileName,
-           let data = SharedImageStore.loadImageData(fileName: fileName),
-           let image = UIImage(data: data) {
-            previewImage = image
+        if let fileName = design.configuration.backgroundImageFileName {
+            previewImage = SharedImageStore.loadImage(fileName: fileName)
         } else {
             previewImage = nil
         }
     }
 
-    private func loadThumb(for design: WidgetDesign) -> UIImage? {
-        guard
-            let fileName = design.configuration.backgroundImageFileName,
-            let data = SharedImageStore.loadImageData(fileName: fileName)
-        else {
-            return nil
+    /// Reloads all portfolio thumbnails off the main thread.
+    private func refreshThumbnails() {
+        let fileNames = Set(portfolio.designs.compactMap(\.configuration.backgroundImageFileName))
+        Task.detached(priority: .userInitiated) {
+            var cache: [String: UIImage] = [:]
+            for fileName in fileNames {
+                // The miniature renders at 155pt; 480px covers 3x displays.
+                cache[fileName] = SharedImageStore.loadImage(fileName: fileName, maxPixelSize: 480)
+            }
+            let loaded = cache
+            await MainActor.run {
+                thumbnailCache = loaded
+            }
         }
-        return UIImage(data: data)
     }
 
     // MARK: - Persistence
@@ -1022,6 +1032,7 @@ struct WidgetConfigurationView: View {
         portfolio = SharedDataStore.loadPortfolio()
         applySelectedDesignToEditor()
         clearPendingImageState()
+        refreshThumbnails()
     }
 
     private func importSelectedPhoto(_ item: PhotosPickerItem?) async {
@@ -1040,7 +1051,9 @@ struct WidgetConfigurationView: View {
 
         pendingImageData = data
         pendingRemoveImage = false
-        previewImage = UIImage(data: data)
+        // Decode at a bounded size; a full-resolution photo can decode to
+        // hundreds of megabytes just to fill a 170pt preview.
+        previewImage = SharedImageStore.downsampledImage(from: data) ?? UIImage(data: data)
     }
 
     private func removeBackgroundImage() {
@@ -1077,8 +1090,8 @@ struct WidgetConfigurationView: View {
                     SharedImageStore.deleteImage(fileName: previousFileName)
                 }
                 draft.backgroundImageFileName = fileName
-                if let stored = SharedImageStore.loadImageData(fileName: fileName) {
-                    previewImage = UIImage(data: stored)
+                if let stored = SharedImageStore.loadImage(fileName: fileName) {
+                    previewImage = stored
                 }
                 self.pendingImageData = nil
                 return true
@@ -1120,6 +1133,7 @@ struct WidgetConfigurationView: View {
         portfolio = SharedDataStore.loadPortfolio()
         applySelectedDesignToEditor()
         clearPendingImageState()
+        refreshThumbnails()
 
         WidgetCenter.shared.reloadAllTimelines()
 
@@ -1159,6 +1173,7 @@ struct WidgetConfigurationView: View {
             return nil
         }
         portfolio = SharedDataStore.loadPortfolio()
+        refreshThumbnails()
         return draft
     }
 

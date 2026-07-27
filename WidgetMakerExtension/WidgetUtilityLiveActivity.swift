@@ -85,7 +85,7 @@ struct WidgetUtilityLiveActivity: Widget {
                         .font(.caption2.weight(.semibold))
                 }
             }
-            .widgetURL(URL(string: "buggywidget://editor"))
+            .widgetURL(DeepLink.editorURL)
         }
     }
 
@@ -154,7 +154,7 @@ struct WidgetUtilityLiveActivity: Widget {
         }
         .activityBackgroundTint(accent.opacity(0.35))
         .activitySystemActionForegroundColor(textColor)
-        .widgetURL(URL(string: "buggywidget://editor"))
+        .widgetURL(DeepLink.editorURL)
     }
 
     private func accentColor(for state: WidgetUtilityAttributes.ContentState) -> Color {
@@ -164,13 +164,8 @@ struct WidgetUtilityLiveActivity: Widget {
     }
 
     private func loadBackgroundImage(fileName: String?) -> UIImage? {
-        guard
-            let fileName,
-            let data = SharedImageStore.loadImageData(fileName: fileName)
-        else {
-            return nil
-        }
-        return UIImage(data: data)
+        guard let fileName else { return nil }
+        return SharedImageStore.loadImage(fileName: fileName)
     }
 }
 

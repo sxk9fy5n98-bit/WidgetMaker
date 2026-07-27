@@ -4,7 +4,9 @@ import ImageIO
 import UIKit
 #endif
 
-enum SharedImageStore {
+/// Stateless disk/image helper; nonisolated so background tasks (thumbnail
+/// loading) can use it despite the target's MainActor default isolation.
+nonisolated enum SharedImageStore {
     /// Widget memory budgets are tight — keep backgrounds reasonably small.
     private static let maxPixelDimension: CGFloat = 1200
     private static let jpegQuality: CGFloat = 0.82
@@ -50,27 +52,35 @@ enum SharedImageStore {
         return fileURL
     }
 
-    static func loadImageData(fileName: String) -> Data? {
-        guard let url = imageURL(for: fileName) else { return nil }
-        return try? Data(contentsOf: url)
-    }
-
     #if canImport(UIKit)
-    /// Loads an image capped at `maxPixelDimension` without decoding the full bitmap.
+    /// Loads an image capped at `maxPixelSize` without decoding the full bitmap.
     /// Keeps widget memory bounded even for oversized files saved by older builds.
-    static func loadImage(fileName: String) -> UIImage? {
-        guard let url = imageURL(for: fileName) else { return nil }
-
-        let sourceOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions as CFDictionary) else {
+    static func loadImage(fileName: String, maxPixelSize: CGFloat = maxPixelDimension) -> UIImage? {
+        guard
+            let url = imageURL(for: fileName),
+            let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions as CFDictionary)
+        else {
             return nil
         }
+        return downsampledImage(from: source, maxPixelSize: maxPixelSize)
+    }
 
+    /// Decodes in-memory image data (e.g. a fresh photo pick) at a bounded size.
+    static func downsampledImage(from data: Data, maxPixelSize: CGFloat = maxPixelDimension) -> UIImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions as CFDictionary) else {
+            return nil
+        }
+        return downsampledImage(from: source, maxPixelSize: maxPixelSize)
+    }
+
+    private static let sourceOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
+
+    private static func downsampledImage(from source: CGImageSource, maxPixelSize: CGFloat) -> UIImage? {
         let thumbnailOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceThumbnailMaxPixelSize: Int(maxPixelDimension)
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxPixelSize)
         ]
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions as CFDictionary) else {
             return nil
